@@ -1,39 +1,48 @@
-#include <WiFiMulti.h>
-WiFiMulti wifiMulti;
 #define DEVICE "ESP32"
+#define FOLDERNAME "/Solar Car Trip Data"
+#define FILENAME FOLDERNAME"/data.csv"
+#define CAN_DECODE_BASE 10
+#define OVERWRITE_DATA
 
-#include <InfluxDbClient.h>
-#include <InfluxDbCloud.h>
-#include "src/shared/tokens.h"
+#include <WiFiMulti.h>
+#include "tokens.h"
+#include "InfluxdbHelper.h"
+#include "CANHelper.h"
+#include "SPI.h"
+#include "SDhelper.h"
+#include <cppQueue.h>
 
-// InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
-#define INFLUXDB_URL "http://localhost:8086"
-// InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
-#define INFLUXDB_ORG "solarcar"
-// InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
-#define INFLUXDB_BUCKET "trip"
+WiFiMulti wifiMulti;
+InfluxDBClient client = setupInfluxd();
 
-// Set timezone string according to https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
-// Examples:
-//  Pacific Time: "PST8PDT"
-//  Eastern: "EST5EDT"
-//  Japanesse: "JST-9"
-//  Central Europe: "CET-1CEST,M3.5.0,M10.5.0/3"
-#define TZ_INFO "EST5EDT,M3.2.0,M11.1.0"
+typedef struct CANmsg {
+	float addr;
+	float data;
+} CANmsg;
 
-// InfluxDB client instance with preconfigured InfluxCloud certificate
-InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+cppQueue q(sizeof(CANmsg), 138, LIFO, true);
+// QueueHandle_t q;
 
-// Data point
+float speed = 1;
+
 Point sensor("car");
 
+TaskHandle_t receiveTaskHandle;
+// TaskHandle_t testTaskHandle;
+
+void CANreceive(void* param);
 void setup() {
 	Serial.begin(115200);
-	
-	// Setup wifi
+  
+//   q = xQueueCreate(69, sizeof(CANmsg));
+//   if (q == NULL) {
+//     Serial.println("Error creating the queue");
+//   }
+
+	setupCANDriver();
+
 	WiFi.mode(WIFI_STA);
 	wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-	
 	Serial.print("Connecting to wifi");
 	while (wifiMulti.run() != WL_CONNECTED) {
 		Serial.print(".");
@@ -41,55 +50,250 @@ void setup() {
 	}
 	Serial.println();
 	
-	// Add tags
 	sensor.addTag("device", DEVICE);
-	sensor.addTag("protocol", "WiFi");
-	sensor.addTag("SSID", WiFi.SSID());
 	
 	// Accurate time is necessary for certificate validation and writing in batches
 	// For the fastest time sync find NTP servers in your area: https://www.pool.ntp.org/zone/
 	// Syncing progress and the time will be printed to Serial.
 	timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
 	
-	// Check server connection
 	if (client.validateConnection()) {
 		Serial.print("Connected to InfluxDB: ");
 		Serial.println(client.getServerUrl());
 	} else {
 		Serial.print("InfluxDB connection failed: ");
 		Serial.println(client.getLastErrorMessage());
+		while(true);
 	}
+
+	// SPIClass spi = SPIClass();
+	// spi.begin(5, 4, 18, 19);
+	// if (!SD.begin(19, spi)) {
+    //     Serial.println("no SD card attached");
+	// } else {
+	// 	Serial.println("SD mounted");
+	// }
+	// setupSD(spi);
+	// noInterrupts(); 
+	// interrupts(); 
+	// xTaskCreatePinnedToCore(
+	// 	WiFiSend
+	// 	, "telmetry"
+	// 	, 2048
+	// 	, NULL
+	// 	, 1
+	// 	, NULL
+	// 	, 0);
+
+//  xTaskCreatePinnedToCore(
+//	keepWiFiAlive,
+//	"keepWiFiAlive",  // Task name
+//	5000,             // Stack size (bytes)
+//	NULL,             // Parameter
+//	1,                // Task priority
+//	NULL,             // Task handle
+//	ARDUINO_RUNNING_CORE
+//);
+
+
+	// xTaskCreatePinnedToCore(
+	// 	queueTest
+	// 	,"q test"
+	// 	, 2048
+	// 	, NULL
+	// 	, 1
+	// 	, &testTaskHandle
+	// 	, 1);
+
+	xTaskCreatePinnedToCore(
+		CANreceive
+		,"can rx"
+		, 10240
+		, NULL
+		, 2
+		, &receiveTaskHandle
+		, 1);
 }
 
 void loop() {
-	float battery = 98.0;
-	float speed = random(690) / 10.0;
-	float temperature = random(420) / 10.0;
-	
-	// Clear fields for reusing the point. Tags will remain untouched
-	sensor.clearFields();
-	
-	// Store measured value into point
-	// Report RSSI of currently connected network
-	sensor.addField("rssi", WiFi.RSSI());
-	sensor.addField("battery", battery);
-	sensor.addField("speed", speed);
-	sensor.addField("temperature", temperature);
-	
-	// Print what are we exactly writing
-	Serial.print("Writing: ");
-	Serial.println(sensor.toLineProtocol());
-	
-	// Check WiFi connection and reconnect if needed
-	if (wifiMulti.run() != WL_CONNECTED) {
-		Serial.println("Wifi connection lost");
-	}
-	
-	// Write point
-	if (!client.writePoint(sensor)) {
-		Serial.print("InfluxDB write failed: ");
-		Serial.println(client.getLastErrorMessage());
-	}
-	
-	delay(1000);
+
 }
+
+void WiFiSend(void* param) {
+	CANmsg msg;
+
+	while (true) {
+		if (!q.isEmpty()) {
+			Serial.println("q not empty");
+			if (wifiMulti.run() == WL_CONNECTED) {
+				q.peek(&msg);
+				sensor.clearFields();
+				sensor.addField("battery", 100);
+				sensor.addField("speed", msg.data);
+				sensor.addField("rssi", WiFi.RSSI());
+				sensor.setTime(WritePrecision::MS);
+				Serial.print("Writing: ");
+				Serial.println(sensor.toLineProtocol());
+
+				if (client.writePoint(sensor)) {
+					q.pop(&msg);
+				} else {
+					Serial.print("InfluxDB write failed: ");
+					Serial.println(client.getLastErrorMessage());
+				}
+				vTaskDelay(50 / portTICK_PERIOD_MS);
+			}
+			else {
+				unsigned long startConnectTime = millis();
+
+				while (wifiMulti.run() != WL_CONNECTED && (millis() - startConnectTime) < 1000) {}
+				if (wifiMulti.run() == WL_CONNECTED) {
+					timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+				} else {
+					Serial.println("couldn't connect to wifi");
+					vTaskDelay(1000 / portTICK_PERIOD_MS);
+				}
+			}
+		} else {
+			Serial.println("q empty");
+		}
+	}
+
+	
+
+}
+
+// void keepWiFiAlive(void * parameter){
+//     for(;;){
+//         if(WiFi.status() == WL_CONNECTED){
+//             vTaskDelay(10000 / portTICK_PERIOD_MS);
+//             continue;
+//         }
+
+//         Serial.println("[WIFI] Connecting");
+//         WiFi.mode(WIFI_STA);
+//         WiFi.begin("BELL878", "167DA273");
+
+//         unsigned long startAttemptTime = millis();
+
+//         // Keep looping while we're not connected and haven't reached the timeout
+//         while (WiFi.status() != WL_CONNECTED && 
+//                 millis() - startAttemptTime < 1000){}
+
+//         // When we couldn't make a WiFi connection (or the timeout expired)
+// 		  // sleep for a while and then retry.
+//         if(WiFi.status() != WL_CONNECTED){
+//             Serial.println("[WIFI] FAILED");
+//             vTaskDelay(3000 / portTICK_PERIOD_MS);
+// 			  continue;
+//         }
+
+//         Serial.println("[WIFI] Connected: " + WiFi.localIP());
+//     }
+// }
+
+void CANreceive(void* param) {
+	uint32_t alertsTriggered;
+	twai_status_info_t status;
+	twai_message_t msg;
+	struct tm tmstruct;
+  	// CANmsg msgfake = {0,0};
+	SPIClass spi = SPIClass();
+	spi.begin(5, 4, 18, 19);
+	if (!SD.begin(19, spi)) {
+        Serial.println("no SD card attached");
+	} else {
+		Serial.println("SD mounted");
+	}
+    createDir(SD, FOLDERNAME);
+    writeFile(SD, FILENAME, "time,CAN address (hex),title,CAN data (hex),info\n");
+	Serial.println("header written");
+
+	// vTaskDelete(NULL);
+//   vTaskSuspend(testTaskHandle);
+
+	while (true) {
+		twai_read_alerts(&alertsTriggered, portMAX_DELAY);
+		twai_get_status_info(&status);
+		printCANalert(alertsTriggered, status);
+
+		if (alertsTriggered & TWAI_ALERT_RX_DATA) {
+			while (twai_receive(&msg, 0) == ESP_OK) {
+				printCANmessage(msg);
+
+				char recordLine[200];
+    			recordLine[0] = 0;
+				if (getLocalTime(&tmstruct)) {
+					sprintf(recordLine, "%02d-%02d-%02d %02d:%02d:%02d",
+						tmstruct.tm_year + 1900 - 2000,
+						tmstruct.tm_mon + 1,
+						tmstruct.tm_mday,
+						tmstruct.tm_hour,
+						tmstruct.tm_min,
+						tmstruct.tm_sec
+					);
+				} else {
+					sprintf(recordLine, "%d", millis());
+				}
+				strcat(recordLine, ",");
+
+				// title
+				strcat(recordLine, "crazy fox");
+				strcat(recordLine, ",");
+
+				char CANid[11];
+				CANid[0] = 0;
+				ultoa(msg.identifier, CANid, 16);
+				strcat(recordLine, CANid);
+				strcat(recordLine, ",");
+
+				for (int i = 0; i < msg.data_length_code; i++) {
+					char CANdata[9];
+					CANdata[0] = 0;
+					itoa(msg.data[i], CANdata, 10);
+					strcat(recordLine, CANdata);
+				}
+				strcat(recordLine, ",");
+
+				// info
+				strcat(recordLine, "random");
+				strcat(recordLine, "\n");
+				Serial.println(recordLine);
+
+				appendFile(SD, FILENAME, recordLine);
+				Serial.println();
+				readFile(SD, FILENAME);
+			}
+		}
+
+		// speed++;
+		// msgfake.data = speed;
+		// // xQueueSendToFront(q, &msg, portMAX_DELAY);
+		// // msg = {0,0};
+		// // xQueuePeek(q, &msg, portMAX_DELAY);
+		// Serial.print("peek at front ");
+
+		// q.push(&msgfake);
+		// msg = {0,0};
+		// q.peek(&msgfake);
+		// Serial.println(msgfake.data);
+	}
+}
+
+// void queueTest(void* param) {
+//   CANmsg msg;
+//   Serial.println("did start");
+
+//   while (true) {
+// 	if (q.isEmpty()) {
+// 		vTaskSuspend(testTaskHandle);
+// 	}
+// 	msg = {0, 0};
+//     // xQueueReceive(q, &msg, portMAX_DELAY);
+// 	q.pop(&msg);
+
+// 	Serial.print("receive queue ");
+//     Serial.println(msg.data);
+//     vTaskDelay(50 / portTICK_PERIOD_MS);
+//   }
+// }
