@@ -5,7 +5,9 @@ void setupSD(SPIClass& spi) {
 	spi.begin(5, 4, 18, 19);
 	if (!SD.begin(19, spi)) {
         Serial.println("no SD card attached");
-        return;
+        while (true);
+    } else {
+		Serial.println("SD mounted");
     }
 }
 
