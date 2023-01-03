@@ -139,16 +139,15 @@ void WiFiSend(void* param) {
 				vTaskDelay(1 / portTICK_PERIOD_MS);
 			}
 			else {
-				// unsigned long startConnectTime = millis();
+				// unsigned long timer = millis();
 
-				// while (wifiMulti.run() != WL_CONNECTED && (millis() - startConnectTime) < 1000) {}
+				// while (wifiMulti.run() != WL_CONNECTED && (millis() - timer) < 1000) {}
 				// if (wifiMulti.run() == WL_CONNECTED) {
 				// 	timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
 				// } else {
 				// 	Serial.println("couldn't connect to wifi");
-				// 	vTaskDelay(1000 / portTICK_PERIOD_MS);
+				// 	vTaskDelay(3000 / portTICK_PERIOD_MS);
 				// }
-				vTaskDelay(1 / portTICK_PERIOD_MS);
 			}
 		} else {
 			vTaskDelay(1 / portTICK_PERIOD_MS);
@@ -192,21 +191,29 @@ void CANreceive(void* param) {
 	uint32_t alertsTriggered;
 	twai_status_info_t status;
 	twai_message_t msg;
-	struct tm tmstruct;
-	struct timeval tv;
-	int64_t time_ms;
+
+	// struct tm tmstruct;
+	// struct timeval tv;
+	// int64_t time_ms;
+
 	CAN2telemetry transmitQitem;
 	unsigned long sn = 1;
+	char recordLine[200];
+	// char msgId[11];
+	// char msgData[9];
+
 	SPIClass spi = SPIClass();
 	setupSD(spi);
     createDir(SD, FOLDERNAME);
-    writeFile(SD, FILENAME, "time,CAN address (hex),title,CAN data (hex),info\n");
+    writeFile(SD, FILENAME, "time,registrar,CAN id,CAN data,telemetry,source,sn,info\n");
 	Serial.println("header written");
 
-	// vTaskDelete(NULL);
-//   vTaskSuspend(testTaskHandle);
-
 	while (true) {
+		EventLogger *logger; //get from queue
+		recordLine[0] = 0;
+		// msgId[0] = 0;
+		// msgData[0] = 0;
+
 		twai_read_alerts(&alertsTriggered, portMAX_DELAY);
 		twai_get_status_info(&status);
 		printCANalert(alertsTriggered, status);
@@ -215,56 +222,54 @@ void CANreceive(void* param) {
 			while (twai_receive(&msg, 0) == ESP_OK) {
 				printCANmessage(msg);
 
-				char recordLine[200];
-    			recordLine[0] = 0;
-				if (getLocalTime(&tmstruct)) {
-					// time(&now);
-					gettimeofday(&tv, NULL);
-					time_ms = tv.tv_sec * 1000LL + tv.tv_usec / 1000LL;
-					sprintf(recordLine, "%d-%02d-%02d %02d:%02d:%02d:%03d",
-						tmstruct.tm_year + 1900 - 2000,
-						tmstruct.tm_mon + 1,
-						tmstruct.tm_mday,
-						tmstruct.tm_hour,
-						tmstruct.tm_min,
-						tmstruct.tm_sec,
-						tv.tv_usec / 1000LL
-					);
-				} else {
-					time_ms = millis();
-					sprintf(recordLine, "%d", time_ms);
-				}
+				CAN_RX_Recorder rec(msg, sn);
+				logger = &rec;
+				//above, get from queue
+				logger->generateLine(recordLine);
 
-				strcat(recordLine, ",");
 
-				// title
-				strcat(recordLine, "crazy fox");
-				strcat(recordLine, ",");
+				// if (getLocalTime(&tmstruct)) {
+				// 	gettimeofday(&tv, NULL);
+				// 	time_ms = tv.tv_sec * 1000LL + tv.tv_usec / 1000LL;
+				// 	sprintf(recordLine, "%d-%02d-%02d %02d:%02d:%02d:%03d",
+				// 		tmstruct.tm_year + 1900 - 2000,
+				// 		tmstruct.tm_mon + 1,
+				// 		tmstruct.tm_mday,
+				// 		tmstruct.tm_hour,
+				// 		tmstruct.tm_min,
+				// 		tmstruct.tm_sec,
+				// 		tv.tv_usec / 1000LL
+				// 	);
+				// } else {
+				// 	time_ms = millis();
+				// 	sprintf(recordLine, "%d", time_ms);
+				// }
+				// strcat(recordLine, ",");
 
-				char CANid[11];
-				CANid[0] = 0;
-				ultoa(msg.identifier, CANid, 16);
-				strcat(recordLine, CANid);
-				strcat(recordLine, ",");
+				// // title
+				// strcat(recordLine, "crazy fox");
+				// strcat(recordLine, ",");
 
-				for (int i = 0; i < msg.data_length_code; i++) {
-					char CANdata[9];
-					CANdata[0] = 0;
-					itoa(msg.data[i], CANdata, 10);
-					strcat(recordLine, CANdata);
-				}
-				strcat(recordLine, ",");
+				// ultoa(msg.identifier, msgId, 16);
+				// strcat(recordLine, msgId);
+				// strcat(recordLine, ",");
 
-				// info
-				strcat(recordLine, "random");
-				strcat(recordLine, "\n");
+				// for (int i = 0; i < msg.data_length_code; i++) {
+				// 	itoa(msg.data[i], msgData, 10);
+				// 	strcat(recordLine, msgData);
+				// }
+				// strcat(recordLine, ",");
+
+				// // info
+				// strcat(recordLine, "random");
+				// strcat(recordLine, "\n");
 				Serial.println(recordLine);
 
 				appendFile(SD, FILENAME, recordLine);
 				Serial.println();
 				readFile(SD, FILENAME);
 
-				transmitQitem = {msg, time_ms, sn++};
+				transmitQitem = {msg, rec.getTime_ms(), sn++};
 				q.push(&transmitQitem);
 			}
 		}

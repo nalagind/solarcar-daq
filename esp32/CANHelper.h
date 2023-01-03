@@ -1,5 +1,9 @@
 //CAN aka TWAI
+#pragma once
+
 #include "driver/twai.h"
+#include "logger.h"
+#define CAN_RX_TASK_NAME "CAN receive"
 
 void setupCANDriver() {
     twai_general_config_t general_config = {
@@ -69,3 +73,72 @@ void printCANmessage(twai_message_t& msg) {
 		Serial.println();
 	}
 }
+
+class CAN_RX_Recorder: public EventLogger {
+  private:
+  twai_message_t msg;
+
+  public:
+  CAN_RX_Recorder(twai_message_t msg, unsigned long sn = 0): EventLogger(0, sn) {
+    this->msg = msg;
+  }
+
+  void generateLine(char *line, const char *delimiter = ",") {
+    char recordLine[200];
+    char temp[11];
+    recordLine[0] = 0;
+    temp[0] = 0;
+
+    // time
+		if (realtime) {
+      sprintf(recordLine, "%d-%02d-%02d %02d:%02d:%02d:%03d",
+        tmstruct.tm_year + 1900 - 2000,
+        tmstruct.tm_mon + 1,
+        tmstruct.tm_mday,
+        tmstruct.tm_hour,
+        tmstruct.tm_min,
+        tmstruct.tm_sec,
+        tv.tv_usec / 1000LL);
+    } else {
+      sprintf(recordLine, "%d", time_ms);
+    }
+    strcat(recordLine, delimiter);
+
+    // registrar
+    strcat(recordLine, CAN_RX_TASK_NAME);
+    strcat(recordLine, delimiter);
+
+    // CAN id
+    ultoa(msg.identifier, temp, 16);
+    strcat(recordLine, temp);
+    strcat(recordLine, delimiter);
+
+    // CAN data
+    for (int i = 0; i < msg.data_length_code; i++) {
+      itoa(msg.data[i], temp, 10);
+      strcat(recordLine, temp);
+    }
+    strcat(recordLine, delimiter);
+
+    // telemetry
+    strcat(recordLine, delimiter);
+
+    // source
+    strcat(recordLine, delimiter);
+
+    // sn
+    ultoa(sn, temp, 10);
+    strcat(recordLine, temp);
+    strcat(recordLine, delimiter);
+
+    // info
+    strcat(recordLine, "random"); // id and data decode
+
+    // finish line
+    strcat(recordLine, "\n");
+    Serial.println(recordLine);
+    for (int i = 0; i < sizeof(recordLine) / sizeof(char); i++) {
+      line[i] = recordLine[i];
+    }
+  }
+};
