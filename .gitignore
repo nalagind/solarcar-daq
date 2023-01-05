@@ -1,4 +1,6 @@
 build/
 .vscode/
-sharedlib/
 esp32/tokens.h
+esp32/debug.cfg
+esp32/debug_custom.json
+esp32/esp32.svd
