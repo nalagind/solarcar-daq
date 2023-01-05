@@ -22,7 +22,7 @@ typedef struct CAN2telemetry {
 } CAN2telemetry;
 
 cppQueue q(sizeof(CAN2telemetry), 111, LIFO, true);
-// QueueHandle_t q;
+QueueHandle_t loggingQ = xQueueCreate(20, sizeof(EventLogger*));
 
 TaskHandle_t receiveTaskHandle;
 // TaskHandle_t testTaskHandle;
@@ -30,11 +30,6 @@ TaskHandle_t receiveTaskHandle;
 void CANreceive(void* param);
 void setup() {
 	Serial.begin(115200);
-  
-//   q = xQueueCreate(69, sizeof(CAN2telemetry));
-//   if (q == NULL) {
-//     Serial.println("Error creating the queue");
-//   }
 
 	setupCANDriver();
 
@@ -80,23 +75,22 @@ void setup() {
 //	ARDUINO_RUNNING_CORE
 //);
 
-
-	// xTaskCreatePinnedToCore(
-	// 	queueTest
-	// 	,"q test"
-	// 	, 2048
-	// 	, NULL
-	// 	, 1
-	// 	, &testTaskHandle
-	// 	, 1);
-
 	xTaskCreatePinnedToCore(
 		CANreceive
 		,"can rx"
 		, 10240
 		, NULL
-		, 2
+		, 3
 		, &receiveTaskHandle
+		, 1);
+		
+	xTaskCreatePinnedToCore(
+		SDwrite
+		,"SD write"
+		, 10240
+		, NULL
+		, 2
+		, NULL
 		, 1);
 }
 
@@ -109,10 +103,13 @@ void WiFiSend(void* param) {
 	char val[100];
 	Point sensor("car");
 	sensor.addTag("device", DEVICE);
+	EventLogger *logger;
 
 	while (true) {
+		logger = NULL;
+
 		if (!q.isEmpty()) {
-			Serial.println("q not empty");
+			// Serial.println("q not empty");
 			if (wifiMulti.run() == WL_CONNECTED) {
 				q.peek(&item2send);
 				sensor.clearFields();
@@ -124,7 +121,8 @@ void WiFiSend(void* param) {
 					strcat(val, data);
 				}
 				sensor.addField("billboard", atoi(val));
-				sensor.addField("rssi", WiFi.RSSI());
+				int8_t rssi = WiFi.RSSI();
+				sensor.addField("rssi", rssi);
 				sensor.setTime(item2send.timestamp);
 				// sensor.setTime(WritePrecision::MS);
 				Serial.printf("Writing CAN msg %d\n", item2send.sn);
@@ -132,10 +130,18 @@ void WiFiSend(void* param) {
 				if (client.writePoint(sensor)) {
 					q.pop(&item2send);
         			Serial.printf("sent %s to db at %d\n", val, millis());
+					logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, "success");
 				} else {
 					Serial.print("InfluxDB write failed: ");
-					Serial.println(client.getLastErrorMessage());
+					String err = client.getLastErrorMessage();
+					int strlen = err.length() + 1;
+					char temp[strlen];
+					err.toCharArray(temp, strlen);
+					logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, temp);
+					Serial.println(err);
 				}
+				
+				xQueueSend(loggingQ, &logger, portMAX_DELAY);
 				vTaskDelay(1 / portTICK_PERIOD_MS);
 			}
 			else {
@@ -167,7 +173,7 @@ void WiFiSend(void* param) {
 
 //         Serial.println("[WIFI] Connecting");
 //         WiFi.mode(WIFI_STA);
-//         WiFi.begin("BELL878", "167DA273");
+//         WiFi.begin("", "");
 
 //         unsigned long startAttemptTime = millis();
 
@@ -192,27 +198,13 @@ void CANreceive(void* param) {
 	twai_status_info_t status;
 	twai_message_t msg;
 
-	// struct tm tmstruct;
-	// struct timeval tv;
-	// int64_t time_ms;
-
 	CAN2telemetry transmitQitem;
 	unsigned long sn = 1;
-	char recordLine[200];
-	// char msgId[11];
-	// char msgData[9];
 
-	SPIClass spi = SPIClass();
-	setupSD(spi);
-    createDir(SD, FOLDERNAME);
-    writeFile(SD, FILENAME, "time,registrar,CAN id,CAN data,telemetry,source,sn,info\n");
-	Serial.println("header written");
+	EventLogger *logger;
 
 	while (true) {
-		EventLogger *logger; //get from queue
-		recordLine[0] = 0;
-		// msgId[0] = 0;
-		// msgData[0] = 0;
+		logger = NULL;
 
 		twai_read_alerts(&alertsTriggered, portMAX_DELAY);
 		twai_get_status_info(&status);
@@ -222,86 +214,38 @@ void CANreceive(void* param) {
 			while (twai_receive(&msg, 0) == ESP_OK) {
 				printCANmessage(msg);
 
-				CAN_RX_Recorder rec(msg, sn);
-				logger = &rec;
-				//above, get from queue
-				logger->generateLine(recordLine);
-
-
-				// if (getLocalTime(&tmstruct)) {
-				// 	gettimeofday(&tv, NULL);
-				// 	time_ms = tv.tv_sec * 1000LL + tv.tv_usec / 1000LL;
-				// 	sprintf(recordLine, "%d-%02d-%02d %02d:%02d:%02d:%03d",
-				// 		tmstruct.tm_year + 1900 - 2000,
-				// 		tmstruct.tm_mon + 1,
-				// 		tmstruct.tm_mday,
-				// 		tmstruct.tm_hour,
-				// 		tmstruct.tm_min,
-				// 		tmstruct.tm_sec,
-				// 		tv.tv_usec / 1000LL
-				// 	);
-				// } else {
-				// 	time_ms = millis();
-				// 	sprintf(recordLine, "%d", time_ms);
-				// }
-				// strcat(recordLine, ",");
-
-				// // title
-				// strcat(recordLine, "crazy fox");
-				// strcat(recordLine, ",");
-
-				// ultoa(msg.identifier, msgId, 16);
-				// strcat(recordLine, msgId);
-				// strcat(recordLine, ",");
-
-				// for (int i = 0; i < msg.data_length_code; i++) {
-				// 	itoa(msg.data[i], msgData, 10);
-				// 	strcat(recordLine, msgData);
-				// }
-				// strcat(recordLine, ",");
-
-				// // info
-				// strcat(recordLine, "random");
-				// strcat(recordLine, "\n");
-				Serial.println(recordLine);
-
-				appendFile(SD, FILENAME, recordLine);
-				Serial.println();
-				readFile(SD, FILENAME);
-
-				transmitQitem = {msg, rec.getTime_ms(), sn++};
+				logger = new CAN_RX_Recorder(msg, sn);
+				xQueueSend(loggingQ, &logger, portMAX_DELAY);
+				transmitQitem = {msg, logger->getTime_ms(), sn++};
 				q.push(&transmitQitem);
 			}
 		}
-
-		// speed++;
-		// msgfake.data = speed;
-		// // xQueueSendToFront(q, &msg, portMAX_DELAY);
-		// // msg = {0,0};
-		// // xQueuePeek(q, &msg, portMAX_DELAY);
-		// Serial.print("peek at front ");
-
-		// q.push(&msgfake);
-		// msg = {0,0};
-		// q.peek(&msgfake);
-		// Serial.println(msgfake.data);
 	}
 }
 
-// void queueTest(void* param) {
-//   CAN2telemetry msg;
-//   Serial.println("did start");
+void SDwrite(void* param) {
+	SPIClass spi = SPIClass();
+	setupSD(spi);
+    createDir(SD, FOLDERNAME);
+    writeFile(SD, FILENAME, "time,registrar,CAN id,CAN data,telemetry,source,sn,info\n");
+	Serial.println("header written");
 
-//   while (true) {
-// 	if (q.isEmpty()) {
-// 		vTaskSuspend(testTaskHandle);
-// 	}
-// 	msg = {0, 0};
-//     // xQueueReceive(q, &msg, portMAX_DELAY);
-// 	q.pop(&msg);
+	EventLogger *logger;
+	char recordLine[200];
 
-// 	Serial.print("receive queue ");
-//     Serial.println(msg.data);
-//     vTaskDelay(50 / portTICK_PERIOD_MS);
-//   }
-// }
+	while (true) {
+		logger = NULL;
+		recordLine[0] = 0;
+
+		xQueueReceive(loggingQ, &logger, portMAX_DELAY);
+		if (logger == NULL) { continue; }
+		logger->generateLine(recordLine);
+
+		appendFile(SD, FILENAME, recordLine);
+		Serial.println();
+		readFile(SD, FILENAME);
+		Serial.println();
+
+		delete logger;
+	}
+}
