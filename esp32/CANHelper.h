@@ -1,5 +1,5 @@
 //CAN aka TWAI
-#pragma once
+// #pragma once
 
 #include "driver/twai.h"
 #include "logger.h"
@@ -136,7 +136,7 @@ class CAN_RX_Recorder: public EventLogger {
 
     // finish line
     strcat(recordLine, "\n");
-    Serial.println(recordLine);
+    // Serial.println(recordLine);
     for (int i = 0; i < sizeof(recordLine) / sizeof(char); i++) {
       line[i] = recordLine[i];
     }

@@ -1,6 +1,8 @@
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
 #include "tokens.h"
+#include "logger.h"
+#define WiFi_TX_TASK_NAME "WiFi tx"
 
 // Set timezone string according to https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
 // Examples:
@@ -27,3 +29,71 @@ InfluxDBClient setupInfluxd() {
 
     return client;
 }
+
+class WiFi_TX_Logger: public EventLogger {
+  private:
+  int8_t rssi;
+  const char* result;
+
+  public:
+  WiFi_TX_Logger(const char *dataSourceTaskName, unsigned long sn, int8_t rssi, const char* result = 0): EventLogger(dataSourceTaskName, sn) {
+    this->rssi = rssi;
+    this->result = result;
+  }
+
+  void generateLine(char *line, const char *delimiter = ",") {
+    char recordLine[200];
+    char temp[11];
+    recordLine[0] = 0;
+    temp[0] = 0;
+
+    // time
+		if (realtime) {
+      sprintf(recordLine, "%d-%02d-%02d %02d:%02d:%02d:%03d",
+        tmstruct.tm_year + 1900 - 2000,
+        tmstruct.tm_mon + 1,
+        tmstruct.tm_mday,
+        tmstruct.tm_hour,
+        tmstruct.tm_min,
+        tmstruct.tm_sec,
+        tv.tv_usec / 1000LL);
+    } else {
+      sprintf(recordLine, "%d", time_ms);
+    }
+    strcat(recordLine, delimiter);
+
+    // registrar
+    strcat(recordLine, WiFi_TX_TASK_NAME);
+    strcat(recordLine, delimiter);
+
+    // CAN id
+    strcat(recordLine, delimiter);
+    
+    // CAN data
+    strcat(recordLine, delimiter);
+
+    // telemetry
+    itoa(rssi, temp, 10);
+    strcat(recordLine, temp);
+    strcat(recordLine, delimiter);
+    
+    // source
+    strcat(recordLine, dataSourceTaskName);
+    strcat(recordLine, delimiter);
+
+    // sn
+    ultoa(sn, temp, 10);
+    strcat(recordLine, temp);
+    strcat(recordLine, delimiter);
+
+    // info
+    strcat(recordLine, result);
+    
+    // finish line
+    strcat(recordLine, "\n");
+    // Serial.println(recordLine);
+    for (int i = 0; i < sizeof(recordLine) / sizeof(char); i++) {
+      line[i] = recordLine[i];
+    }
+  }
+};
