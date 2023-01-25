@@ -4,7 +4,6 @@
 #define CAN_DECODE_BASE 10
 #define OVERWRITE_DATA
 
-#include <WiFiMulti.h>
 #include "tokens.h"
 #include "InfluxdbHelper.h"
 #include "CANHelper.h"
@@ -12,7 +11,6 @@
 #include "SDhelper.h"
 #include <cppQueue.h>
 
-WiFiMulti wifiMulti;
 InfluxDBClient client = setupInfluxd();
 
 typedef struct CAN2telemetry {
@@ -25,6 +23,9 @@ cppQueue q(sizeof(CAN2telemetry), 111, LIFO, true);
 QueueHandle_t loggingQ = xQueueCreate(20, sizeof(EventLogger*));
 
 TaskHandle_t receiveTaskHandle;
+TaskHandle_t wifi_tx_hdl;
+TaskHandle_t wifi_connect_hdl;
+TaskHandle_t server_hdl;
 // TaskHandle_t testTaskHandle;
 
 void CANreceive(void* param);
@@ -33,32 +34,13 @@ void setup() {
 
 	setupCANDriver();
 
-	WiFi.mode(WIFI_STA);
-	wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-	Serial.print("Connecting to wifi");
-	while (wifiMulti.run() != WL_CONNECTED) {
-		Serial.print(".");
-		delay(100);
-	}
-	Serial.println();
-	timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
-	
-	if (client.validateConnection()) {
-		Serial.print("Connected to InfluxDB: ");
-		Serial.println(client.getServerUrl());
-	} else {
-		Serial.print("InfluxDB connection failed: ");
-		Serial.println(client.getLastErrorMessage());
-		while(true);
-	}
-
 	xTaskCreatePinnedToCore(
 		WiFiSend
-		, "WiFi TX"
+		, "wifi tx"
 		, 10240
 		, NULL
 		, 2
-		, NULL
+		, &wifi_tx_hdl
 		, 0);
 		
 	xTaskCreatePinnedToCore(
@@ -67,18 +49,18 @@ void setup() {
 		, 10240
 		, NULL
 		, 1
-		, NULL
+		, &server_hdl
 		, 0);
 
-//  xTaskCreatePinnedToCore(
-//	keepWiFiAlive,
-//	"keepWiFiAlive",  // Task name
-//	5000,             // Stack size (bytes)
-//	NULL,             // Parameter
-//	1,                // Task priority
-//	NULL,             // Task handle
-//	ARDUINO_RUNNING_CORE
-//);
+	xTaskCreatePinnedToCore(
+		WiFiConnect
+		, "wifi connect"
+		, 10240
+		, NULL
+		, 3
+		, &wifi_connect_hdl
+		, 0);
+	xTaskNotifyGive(wifi_connect_hdl);
 
 	xTaskCreatePinnedToCore(
 		CANreceive
@@ -91,7 +73,7 @@ void setup() {
 		
 	xTaskCreatePinnedToCore(
 		SDwrite
-		,"SD write"
+		,"sd write"
 		, 10240
 		, NULL
 		, 2
@@ -104,6 +86,19 @@ void loop() {
 }
 
 void WiFiSend(void* param) {
+	uint32_t notification;
+
+	notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	Serial.println("wifi send started");
+	Serial.printf("wifi tx notification: %d\n", notification);
+
+	if (client.validateConnection()) {
+		Serial.println("Connected to InfluxDB: " + client.getServerUrl());
+	} else {
+		Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
+		vTaskSuspend(NULL); // handle exception?
+	}
+		
 	CAN2telemetry item2send;
 	char val[100];
 	Point sensor("car");
@@ -115,7 +110,7 @@ void WiFiSend(void* param) {
 
 		if (!q.isEmpty()) {
 			// Serial.println("q not empty");
-			if (wifiMulti.run() == WL_CONNECTED) {
+			if (WiFi.status() == WL_CONNECTED) {
 				q.peek(&item2send);
 				sensor.clearFields();
 				val[0] = 0;
@@ -134,7 +129,7 @@ void WiFiSend(void* param) {
 
 				if (client.writePoint(sensor)) {
 					q.pop(&item2send);
-        			Serial.printf("sent %s to db at %d\n", val, millis());
+					Serial.printf("sent %s to db at %d\n", val, millis());
 					logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, "success");
 				} else {
 					Serial.print("InfluxDB write failed: ");
@@ -148,29 +143,24 @@ void WiFiSend(void* param) {
 				
 				xQueueSend(loggingQ, &logger, portMAX_DELAY);
 				vTaskDelay(1 / portTICK_PERIOD_MS);
-			}
-			else {
-				// unsigned long timer = millis();
-
-				// while (wifiMulti.run() != WL_CONNECTED && (millis() - timer) < 1000) {}
-				// if (wifiMulti.run() == WL_CONNECTED) {
-				// 	timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
-				// } else {
-				// 	Serial.println("couldn't connect to wifi");
-				// 	vTaskDelay(3000 / portTICK_PERIOD_MS);
-				// }
+			} else {
+				Serial.println("disconneted, hand over to keep alive");
+				xTaskNotifyGive(wifi_connect_hdl);
 			}
 		} else {
 			vTaskDelay(1 / portTICK_PERIOD_MS);
 		}
 	}
-
-	
-
 }
 
 void simpleServer(void *param)
 {
+	uint32_t notification;
+
+	notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	Serial.println("simple server started");
+	Serial.printf("server notification: %d\n", notification);
+
 	WiFiServer server(80);
 
 	String header;
@@ -192,8 +182,12 @@ void simpleServer(void *param)
 	Serial.println(WiFi.localIP());
 	server.begin();
 
-	while (true)
-	{
+	while (true) {
+		if (WiFi.status() != WL_CONNECTED) {
+			Serial.println("disconneted, hand over to keep alive");
+			xTaskNotifyGive(wifi_connect_hdl);
+		}
+
 		WiFiClient client = server.available(); // Listen for incoming clients
 
 		if (client)
@@ -319,34 +313,46 @@ void simpleServer(void *param)
 	}
 }
 
-// void keepWiFiAlive(void * parameter){
-//     for(;;){
-//         if(WiFi.status() == WL_CONNECTED){
-//             vTaskDelay(10000 / portTICK_PERIOD_MS);
-//             continue;
-//         }
+void WiFiConnect(void *parameter) {
+	while (true) {
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		vTaskSuspend(wifi_tx_hdl);
+		vTaskSuspend(server_hdl);
+		
+		WiFi.mode(WIFI_STA);
+		WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-//         Serial.println("[WIFI] Connecting");
-//         WiFi.mode(WIFI_STA);
-//         WiFi.begin("", "");
+		if (WiFi.status() == WL_CONNECTED) {
+			vTaskResume(wifi_tx_hdl);
+			vTaskResume(server_hdl);
+			continue;
+		}
 
-//         unsigned long startAttemptTime = millis();
-
-//         // Keep looping while we're not connected and haven't reached the timeout
-//         while (WiFi.status() != WL_CONNECTED && 
-//                 millis() - startAttemptTime < 1000){}
-
-//         // When we couldn't make a WiFi connection (or the timeout expired)
-// 		  // sleep for a while and then retry.
-//         if(WiFi.status() != WL_CONNECTED){
-//             Serial.println("[WIFI] FAILED");
-//             vTaskDelay(3000 / portTICK_PERIOD_MS);
-// 			  continue;
-//         }
-
-//         Serial.println("[WIFI] Connected: " + WiFi.localIP());
-//     }
-// }
+		Serial.println("connecting to WiFi");
+		unsigned long timer = millis();
+		while (WiFi.status() != WL_CONNECTED) {
+			Serial.println("into wifi connect loop");
+			if (millis() - timer < 5000) {
+				Serial.print(".");
+				vTaskDelay(500 / portTICK_PERIOD_MS);
+			} else {
+				Serial.println("could not connect to wifi, retry in 5 secs");
+				vTaskDelay(5000 / portTICK_PERIOD_MS);
+				WiFi.disconnect();
+				WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+				Serial.println("connecting to WiFi");
+				timer = millis();
+			}
+		}
+			
+		// timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+		configTzTime(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+    	Serial.print("wifi connected, local IP: ");
+		Serial.println(WiFi.localIP());
+		vTaskResume(wifi_tx_hdl);
+		vTaskResume(server_hdl);
+	}
+}
 
 void CANreceive(void* param) {
 	uint32_t alertsTriggered;

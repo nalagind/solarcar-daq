@@ -3,6 +3,7 @@
 #include "tokens.h"
 #include "logger.h"
 #define WiFi_TX_TASK_NAME "WiFi tx"
+#define INFLUXDB_BUCKET "drive"
 
 // Set timezone string according to https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
 // Examples:
@@ -13,19 +14,29 @@
 #define TZ_INFO "EST5EDT,M3.2.0,M11.1.0"
 
 InfluxDBClient setupInfluxd() {
-  Serial.println(INFLUXDB_TOKEN);
-    InfluxDBClient client(
+    InfluxDBClient client (
         // InfluxDB client instance with preconfigured InfluxCloud certificate
 
         INFLUXDB_URL, // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
         "solarcar", // InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
-        "trip", // InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
+        INFLUXDB_BUCKET, // InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
         INFLUXDB_TOKEN,
         InfluxDbCloud2CACert
         
     );
     
     client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS)); // Set write precision to milliseconds. Leave other parameters default.
+
+    // BucketsClient buckets = client.getBucketsClient();
+    // if (!buckets.checkBucketExists(INFLUXDB_BUCKET)) {
+    //   Bucket b = buckets.createBucket(INFLUXDB_BUCKET, 0); // retention policy in sec, 0 = infinity
+    //   if (!b) {
+    //     Serial.print("could not create bucket: ");
+    //     Serial.println(buckets.getLastErrorMessage());
+    //     while (true) {};
+    //   }
+    //   Serial.printf("created bucket: %s\n", b.toString());
+    // }
 
     return client;
 }
@@ -58,7 +69,7 @@ class WiFi_TX_Logger: public EventLogger {
         tmstruct.tm_sec,
         tv.tv_usec / 1000LL);
     } else {
-      sprintf(recordLine, "%d", time_ms);
+      sprintf(recordLine, "%d (ms)", time_ms);
     }
     strcat(recordLine, delimiter);
 
