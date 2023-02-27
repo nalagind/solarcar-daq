@@ -36,7 +36,7 @@ void setup() {
 
 	setupCANDriver();
 	
-  	wifi_status_event_group = xEventGroupCreate();
+	wifi_status_event_group = xEventGroupCreate();
 	xEventGroupSetBits(wifi_status_event_group, BIT0);
 
 	xTaskCreatePinnedToCore(
@@ -65,7 +65,7 @@ void setup() {
 		, 3
 		, &wifi_connect_hdl
 		, 0);
-	xTaskNotifyGive(wifi_connect_hdl);
+	// xTaskNotifyGive(wifi_connect_hdl);
 
 	xTaskCreatePinnedToCore(
 		CANreceive
@@ -205,90 +205,95 @@ void simpleServer(void *param)
 
 			WiFiClient client = server.available(); // Listen for incoming clients
 
-		if (client) { // If a new client connects
-			currentTime = millis();
-			previousTime = currentTime;
-			Serial.println("New Client");
-			String currentLine = "";	   // make a String to hold incoming data from the client
-      
-			while (client.connected() && currentTime - previousTime <= timeoutTime) { // loop while the client's connected
+			if (client)
+			{ // If a new client connects,
 				currentTime = millis();
-				if (client.available()) {// if there's bytes to read from the client,
-					char c = client.read();
-					Serial.write(c);
-					header += c;
-					if (c == '\n') {
-						// if the current line is blank, you got two newline characters in a row.
-						// that's the end of the client HTTP request, so send a response:
-						if (currentLine.length() == 0) {
-							// HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-							// and a content-type so the client knows what's coming, then a blank line:
-              const char * responseHeader =
-              "HTTP/1.1 200 OK\n"
-              "Content-type:text/html\n"
-              "Connection: close\n"
-              "\n";
-              client.print(responseHeader);
+				previousTime = currentTime;
+				Serial.println("New Client."); // print a message out in the serial port
+				String currentLine = "";	   // make a String to hold incoming data from the client
+				while (client.connected() && currentTime - previousTime <= timeoutTime)
+				{ // loop while the client's connected
+					currentTime = millis();
+					if (client.available())
+					{							// if there's bytes to read from the client,
+						char c = client.read(); // read a byte, then
+						Serial.write(c);		// print it out the serial monitor
+						header += c;
+						if (c == '\n')
+						{ // if the byte is a newline character
+							// if the current line is blank, you got two newline characters in a row.
+							// that's the end of the client HTTP request, so send a response:
+							if (currentLine.length() == 0)
+							{
+								// HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+								// and a content-type so the client knows what's coming, then a blank line:
+								client.println("HTTP/1.1 200 OK");
+								client.println("Content-type:text/html");
+								client.println("Connection: close");
+								client.println();
 
 								// turns the GPIOs on and off
-								if (header.indexOf("GET /26/on") >= 0)
+								if (header.indexOf("GET /13/on") >= 0)
 								{
 									Serial.println("GPIO 26 on");
 									redState = "on";
-									digitalWrite(rgb_red, HIGH);
+									digitalWrite(rgb_red, LOW);
 								}
-								else if (header.indexOf("GET /26/off") >= 0)
+								else if (header.indexOf("GET /13/off") >= 0)
 								{
 									Serial.println("GPIO 26 off");
 									redState = "off";
-									digitalWrite(rgb_red, LOW);
+									digitalWrite(rgb_red, HIGH);
 								}
 								else if (header.indexOf("GET /27/on") >= 0)
 								{
 									Serial.println("GPIO 27 on");
 									greenState = "on";
-									digitalWrite(rgb_green, HIGH);
+									digitalWrite(rgb_green, LOW);
 								}
 								else if (header.indexOf("GET /27/off") >= 0)
 								{
 									Serial.println("GPIO 27 off");
 									greenState = "off";
-									digitalWrite(rgb_green, LOW);
+									digitalWrite(rgb_green, HIGH);
+								}
+								else if (header.indexOf("GET /14/on") >= 0)
+								{
+									Serial.println("GPIO 14 on");
+									blueState = "on";
+									digitalWrite(rgb_blue, LOW);
+								}
+								else if (header.indexOf("GET /14/off") >= 0)
+								{
+									Serial.println("GPIO 14 off");
+									blueState = "off";
+									digitalWrite(rgb_blue, HIGH);
 								}
 
 								// Display the HTML web page
-              const char * html = R"V0G0N(<!DOCTYPE html><html>
-              "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-              "<link rel=\"icon\" href=\"data:,\">\n"
-								// client.println("<!DOCTYPE html><html>");
-								// client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-								// client.println("<link rel=\"icon\" href=\"data:,\">");
+								client.println("<!DOCTYPE html><html>");
+								client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+								client.println("<link rel=\"icon\" href=\"data:,\">");
 								// CSS to style the on/off buttons
 								// Feel free to change the background-color and font-size attributes to fit your preferences
-              "<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n"
-              ".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;\n"
-              "text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}\n"
-              ".button2 {background-color: #555555;}</style></head>\n";
-              )V0G0N";
-								// client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-								// client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
-								// client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-								// client.println(".button2 {background-color: #555555;}</style></head>");
-              client.println(html);
+								client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
+								client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
+								client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
+								client.println(".button2 {background-color: #555555;}</style></head>");
 
 								// Web Page Heading
 								client.println("<body><h1>ESP32 Web Server</h1>");
 
-								// Display current state, and ON/OFF buttons for GPIO 26
+								// Display current state, and ON/OFF buttons for GPIO 13
 								client.println("<p>Red - State " + redState + "</p>");
-								// If the output26State is off, it displays the ON button
+								// If the output13State is off, it displays the ON button
 								if (redState == "off")
 								{
-									client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
+									client.println("<p><a href=\"/13/on\"><button class=\"button\">OFF</button></a></p>");
 								}
 								else
 								{
-									client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
+									client.println("<p><a href=\"/13/off\"><button class=\"button button2\">ON</button></a></p>");
 								}
 
 								// Display current state, and ON/OFF buttons for GPIO 27
@@ -296,24 +301,24 @@ void simpleServer(void *param)
 								// If the output27State is off, it displays the ON button
 								if (greenState == "off")
 								{
-									client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
+									client.println("<p><a href=\"/27/on\"><button class=\"button\">OFF</button></a></p>");
 								}
 								else
 								{
-									client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
+									client.println("<p><a href=\"/27/off\"><button class=\"button button2\">ON</button></a></p>");
 								}
 
-							// Display current state, and ON/OFF buttons for GPIO 27
-							client.println("<p>Green - State " + blueState + "</p>");
-							// If the output27State is off, it displays the ON button
-							if (greenState == "off")
-							{
-								client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
-							}
-							else
-							{
-								client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
-							}
+								// Display current state, and ON/OFF buttons for GPIO 14
+								client.println("<p>Blue - State " + blueState + "</p>");
+								// If the output14State is off, it displays the ON button
+								if (blueState == "off")
+								{
+									client.println("<p><a href=\"/14/on\"><button class=\"button\">OFF</button></a></p>");
+								}
+								else
+								{
+									client.println("<p><a href=\"/14/off\"><button class=\"button button2\">ON</button></a></p>");
+								}
 
 								client.println("</body></html>");
 
