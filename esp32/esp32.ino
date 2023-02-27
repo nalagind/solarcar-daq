@@ -22,6 +22,8 @@ typedef struct CAN2telemetry {
 cppQueue q(sizeof(CAN2telemetry), 111, LIFO, true);
 QueueHandle_t loggingQ = xQueueCreate(20, sizeof(EventLogger*));
 
+EventGroupHandle_t wifi_status_event_group;
+
 TaskHandle_t receiveTaskHandle;
 TaskHandle_t wifi_tx_hdl;
 TaskHandle_t wifi_connect_hdl;
@@ -33,6 +35,9 @@ void setup() {
 	Serial.begin(115200);
 
 	setupCANDriver();
+	
+  	wifi_status_event_group = xEventGroupCreate();
+	xEventGroupSetBits(wifi_status_event_group, BIT0);
 
 	xTaskCreatePinnedToCore(
 		WiFiSend
@@ -86,116 +91,119 @@ void loop() {
 }
 
 void WiFiSend(void* param) {
-	uint32_t notification;
-
-	notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-	Serial.println("wifi send started");
-	Serial.printf("wifi tx notification: %d\n", notification);
-
-	if (client.validateConnection()) {
-		Serial.println("Connected to InfluxDB: " + client.getServerUrl());
-	} else {
-		Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
-		vTaskSuspend(NULL); // handle exception?
-	}
-		
 	CAN2telemetry item2send;
 	char val[100];
-	Point sensor("car");
-	sensor.addTag("device", DEVICE);
 	EventLogger *logger;
-
+	
 	while (true) {
-		logger = NULL;
+		xEventGroupWaitBits(wifi_status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
+		Serial.println("wifi send started");
 
-		if (!q.isEmpty()) {
-			// Serial.println("q not empty");
-			if (WiFi.status() == WL_CONNECTED) {
-				q.peek(&item2send);
-				sensor.clearFields();
-				val[0] = 0;
-
-				for (int i = 0; i < item2send.message.data_length_code; i++) {
-					char data[9];
-					itoa(item2send.message.data[i], data, 10);
-					strcat(val, data);
-				}
-				sensor.addField("billboard", atoi(val));
-				int8_t rssi = WiFi.RSSI();
-				sensor.addField("rssi", rssi);
-				sensor.setTime(item2send.timestamp);
-				// sensor.setTime(WritePrecision::MS);
-				Serial.printf("Writing CAN msg %d\n", item2send.sn);
-
-				if (client.writePoint(sensor)) {
-					q.pop(&item2send);
-					Serial.printf("sent %s to db at %d\n", val, millis());
-					logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, "success");
-				} else {
-					Serial.print("InfluxDB write failed: ");
-					String err = client.getLastErrorMessage();
-					int strlen = err.length() + 1;
-					char temp[strlen];
-					err.toCharArray(temp, strlen);
-					logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, temp);
-					Serial.println(err);
-				}
-				
-				xQueueSend(loggingQ, &logger, portMAX_DELAY);
-				vTaskDelay(1 / portTICK_PERIOD_MS);
-			} else {
-				Serial.println("disconneted, hand over to keep alive");
-				xTaskNotifyGive(wifi_connect_hdl);
-			}
+		if (client.validateConnection()) {
+			Serial.println("Connected to InfluxDB: " + client.getServerUrl());
 		} else {
-			vTaskDelay(1 / portTICK_PERIOD_MS);
+			Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
+			vTaskSuspend(NULL); // handle exception?
+		}
+
+		Point sensor("car");
+		sensor.addTag("device", DEVICE);
+			
+		while (true) {
+			logger = NULL;
+
+			if (!q.isEmpty()) {
+				// Serial.println("q not empty");
+				if (WiFi.status() == WL_CONNECTED) {
+					q.peek(&item2send);
+					sensor.clearFields();
+					val[0] = 0;
+
+					for (int i = 0; i < item2send.message.data_length_code; i++) {
+						char data[9];
+						itoa(item2send.message.data[i], data, 10);
+						strcat(val, data);
+					}
+					sensor.addField("billboard", atoi(val));
+					int8_t rssi = WiFi.RSSI();
+					sensor.addField("rssi", rssi);
+					sensor.setTime(item2send.timestamp);
+					// sensor.setTime(WritePrecision::MS);
+					Serial.printf("Writing CAN msg %d\n", item2send.sn);
+
+					if (client.writePoint(sensor)) {
+						q.pop(&item2send);
+						Serial.printf("sent %s to db at %d\n", val, millis());
+						logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, "success");
+					} else {
+						Serial.print("InfluxDB write failed: ");
+						String err = client.getLastErrorMessage();
+						int strlen = err.length() + 1;
+						char temp[strlen];
+						err.toCharArray(temp, strlen);
+						logger = new WiFi_TX_Logger(CAN_RX_TASK_NAME, item2send.sn, rssi, temp);
+						Serial.println(err);
+					}
+					
+					xQueueSend(loggingQ, &logger, portMAX_DELAY);
+					vTaskDelay(1 / portTICK_PERIOD_MS);
+				} else {
+					Serial.println("disconneted, hand over to keep alive");
+					xEventGroupClearBits(wifi_status_event_group, BIT1);
+					xEventGroupSetBits(wifi_status_event_group, BIT0);
+					break;
+				}
+			} else {
+				vTaskDelay(1 / portTICK_PERIOD_MS);
+			}
 		}
 	}
 }
 
 void simpleServer(void *param)
 {
-	uint32_t notification;
-
-	notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-	Serial.println("simple server started");
-	Serial.printf("server notification: %d\n", notification);
-
-	WiFiServer server(80);
-
 	String header;
 	String redState = "off";
 	String greenState = "off";
-  String blueState = "off";
+	String blueState = "off";
 
 	const int rgb_red = 13;
 	const int rgb_green = 27;
-  const int rgb_blue = 14;
+  	const int rgb_blue = 14;
 
 	unsigned long currentTime = millis();
 	unsigned long previousTime = 0;
 	const long timeoutTime = 2000;
-
 	pinMode(rgb_red, OUTPUT);
 	pinMode(rgb_green, OUTPUT);
-  pinMode(rgb_blue, OUTPUT);
+	pinMode(rgb_blue, OUTPUT);
 
 	digitalWrite(rgb_red, HIGH);
 	digitalWrite(rgb_green, HIGH);
 	digitalWrite(rgb_blue, HIGH);
 
-	Serial.println("\nWiFi connected. IP address: ");
-	Serial.println(WiFi.localIP());
-
-	server.begin();
-
 	while (true) {
-		if (WiFi.status() != WL_CONNECTED) {
-			Serial.println("disconneted, hand over to keep alive");
-			xTaskNotifyGive(wifi_connect_hdl);
-		}
+		xEventGroupWaitBits(wifi_status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
+		Serial.println("simple server started");
 
-		WiFiClient client = server.available(); // Listen for incoming clients
+		Serial.println();
+		Serial.println("WiFi connected.");
+		Serial.println("IP address: ");
+		Serial.println(WiFi.localIP());
+
+		WiFiServer server(80);
+		server.begin();
+
+		while (true) {
+			if (WiFi.status() != WL_CONNECTED) {
+				Serial.println("disconneted, hand over to keep alive");
+				// xTaskNotifyGive(wifi_connect_hdl);
+				xEventGroupClearBits(wifi_status_event_group, BIT1);
+				xEventGroupSetBits(wifi_status_event_group, BIT0);
+				break;
+			}
+
+			WiFiClient client = server.available(); // Listen for incoming clients
 
 		if (client) { // If a new client connects
 			currentTime = millis();
@@ -222,78 +230,78 @@ void simpleServer(void *param)
               "\n";
               client.print(responseHeader);
 
-							// turns the GPIOs on and off
-							if (header.indexOf("GET /26/on") >= 0)
-							{
-								Serial.println("GPIO 26 on");
-								redState = "on";
-								digitalWrite(rgb_red, HIGH);
-							}
-							else if (header.indexOf("GET /26/off") >= 0)
-							{
-								Serial.println("GPIO 26 off");
-								redState = "off";
-								digitalWrite(rgb_red, LOW);
-							}
-							else if (header.indexOf("GET /27/on") >= 0)
-							{
-								Serial.println("GPIO 27 on");
-								greenState = "on";
-								digitalWrite(rgb_green, HIGH);
-							}
-							else if (header.indexOf("GET /27/off") >= 0)
-							{
-								Serial.println("GPIO 27 off");
-								greenState = "off";
-								digitalWrite(rgb_green, LOW);
-							}
+								// turns the GPIOs on and off
+								if (header.indexOf("GET /26/on") >= 0)
+								{
+									Serial.println("GPIO 26 on");
+									redState = "on";
+									digitalWrite(rgb_red, HIGH);
+								}
+								else if (header.indexOf("GET /26/off") >= 0)
+								{
+									Serial.println("GPIO 26 off");
+									redState = "off";
+									digitalWrite(rgb_red, LOW);
+								}
+								else if (header.indexOf("GET /27/on") >= 0)
+								{
+									Serial.println("GPIO 27 on");
+									greenState = "on";
+									digitalWrite(rgb_green, HIGH);
+								}
+								else if (header.indexOf("GET /27/off") >= 0)
+								{
+									Serial.println("GPIO 27 off");
+									greenState = "off";
+									digitalWrite(rgb_green, LOW);
+								}
 
-							// Display the HTML web page
+								// Display the HTML web page
               const char * html = R"V0G0N(<!DOCTYPE html><html>
               "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
               "<link rel=\"icon\" href=\"data:,\">\n"
-							// client.println("<!DOCTYPE html><html>");
-							// client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-							// client.println("<link rel=\"icon\" href=\"data:,\">");
-							// CSS to style the on/off buttons
-							// Feel free to change the background-color and font-size attributes to fit your preferences
+								// client.println("<!DOCTYPE html><html>");
+								// client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+								// client.println("<link rel=\"icon\" href=\"data:,\">");
+								// CSS to style the on/off buttons
+								// Feel free to change the background-color and font-size attributes to fit your preferences
               "<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n"
               ".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;\n"
               "text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}\n"
               ".button2 {background-color: #555555;}</style></head>\n";
               )V0G0N";
-							// client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-							// client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
-							// client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-							// client.println(".button2 {background-color: #555555;}</style></head>");
+								// client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
+								// client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
+								// client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
+								// client.println(".button2 {background-color: #555555;}</style></head>");
               client.println(html);
 
-							// Web Page Heading
-							client.println("<body><h1>ESP32 Web Server</h1>");
+								// Web Page Heading
+								client.println("<body><h1>ESP32 Web Server</h1>");
 
-							// Display current state, and ON/OFF buttons for GPIO 26
-							client.println("<p>Red - State " + redState + "</p>");
-							// If the output26State is off, it displays the ON button
-							if (redState == "off")
-							{
-								client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
-							}
-							else
-							{
-								client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
-							}
+								// Display current state, and ON/OFF buttons for GPIO 26
+								client.println("<p>Red - State " + redState + "</p>");
+								// If the output26State is off, it displays the ON button
+								if (redState == "off")
+								{
+									client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
+								}
+								else
+								{
+									client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
+								}
 
-							// Display current state, and ON/OFF buttons for GPIO 27
-							client.println("<p>Green - State " + greenState + "</p>");
-							// If the output27State is off, it displays the ON button
-							if (greenState == "off")
-							{
-								client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
-							}
-							else
-							{
-								client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
-							}
+								// Display current state, and ON/OFF buttons for GPIO 27
+								client.println("<p>Green - State " + greenState + "</p>");
+								// If the output27State is off, it displays the ON button
+								if (greenState == "off")
+								{
+									client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
+								}
+								else
+								{
+									client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
+								}
 
 							// Display current state, and ON/OFF buttons for GPIO 27
 							client.println("<p>Green - State " + blueState + "</p>");
@@ -307,51 +315,49 @@ void simpleServer(void *param)
 								client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
 							}
 
-							client.println("</body></html>");
+								client.println("</body></html>");
 
-							// The HTTP response ends with another blank line
-							client.println();
-							// Break out of the while loop
-							break;
+								// The HTTP response ends with another blank line
+								client.println();
+								// Break out of the while loop
+								break;
+							}
+							else
+							{ // if you got a newline, then clear currentLine
+								currentLine = "";
+							}
 						}
-						else
-						{ // if you got a newline, then clear currentLine
-							currentLine = "";
+						else if (c != '\r')
+						{					  // if you got anything else but a carriage return character,
+							currentLine += c; // add it to the end of the currentLine
 						}
-					}
-					else if (c != '\r')
-					{					  // if you got anything else but a carriage return character,
-						currentLine += c; // add it to the end of the currentLine
+						vTaskDelay(1);
 					}
 					vTaskDelay(1);
 				}
+				// Clear the header variable
+				header = "";
+				// Close the connection
+				client.stop();
+				Serial.println("Client disconnected.");
+				Serial.println("");
 				vTaskDelay(1);
 			}
-			// Clear the header variable
-			header = "";
-			// Close the connection
-			client.stop();
-			Serial.println("Client disconnected.");
-			Serial.println("");
+			
 			vTaskDelay(1);
 		}
-		
-		vTaskDelay(1);
 	}
 }
 
 void WiFiConnect(void *parameter) {
 	while (true) {
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-		vTaskSuspend(wifi_tx_hdl);
-		vTaskSuspend(server_hdl);
+		xEventGroupWaitBits(wifi_status_event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
 		
 		WiFi.mode(WIFI_STA);
 		WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
 		if (WiFi.status() == WL_CONNECTED) {
-			vTaskResume(wifi_tx_hdl);
-			vTaskResume(server_hdl);
+			xEventGroupSetBits(wifi_status_event_group, BIT1);
 			continue;
 		}
 
@@ -376,8 +382,7 @@ void WiFiConnect(void *parameter) {
 		configTzTime(TZ_INFO, "pool.ntp.org", "time.nis.gov");
     	Serial.print("wifi connected, local IP: ");
 		Serial.println(WiFi.localIP());
-		vTaskResume(wifi_tx_hdl);
-		vTaskResume(server_hdl);
+		xEventGroupSetBits(wifi_status_event_group, BIT1);
 	}
 }
 
