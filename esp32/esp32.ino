@@ -9,7 +9,9 @@
 #include "CANHelper.h"
 #include "SPI.h"
 #include "SDhelper.h"
+#include "preferencesCLI.h"
 #include <cppQueue.h>
+#include <Preferences.h>
 
 InfluxDBClient client = setupInfluxd();
 
@@ -30,7 +32,6 @@ TaskHandle_t wifi_connect_hdl;
 TaskHandle_t server_hdl;
 // TaskHandle_t testTaskHandle;
 
-void CANreceive(void* param);
 void setup() {
 	Serial.begin(115200);
 
@@ -69,7 +70,7 @@ void setup() {
 
 	xTaskCreatePinnedToCore(
 		CANreceive
-		,"can rx"
+		, "can rx"
 		, 10240
 		, NULL
 		, 3
@@ -78,16 +79,40 @@ void setup() {
 		
 	xTaskCreatePinnedToCore(
 		SDwrite
-		,"sd write"
+		, "sd write"
 		, 10240
 		, NULL
 		, 2
 		, NULL
 		, 1);
+
+	xTaskCreate(
+		readConfig
+		, "cli"
+		, 10240
+		, NULL
+		, 1
+		, NULL);
 }
 
 void loop() {
 
+}
+
+void readConfig(void* arg) {
+	SimpleCLI cli = setupCLI();
+
+	while (true) {
+		while (!Serial.available()) {}
+		
+		String input = Serial.readStringUntil('\n');
+		Serial.print("% ");
+		Serial.println(input);
+		cli.parse(input);
+		if (!cli.available()) continue;
+
+		// xEventGroupSetBits(wifi_status_event_group, BIT2);
+	}
 }
 
 void WiFiSend(void* param) {
