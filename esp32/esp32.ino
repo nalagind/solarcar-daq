@@ -11,9 +11,6 @@
 #include "SDhelper.h"
 #include "preferencesCLI.h"
 #include <cppQueue.h>
-#include <Preferences.h>
-
-InfluxDBClient client = setupInfluxd();
 
 typedef struct CAN2telemetry {
 	twai_message_t message;
@@ -31,6 +28,9 @@ TaskHandle_t wifi_tx_hdl;
 TaskHandle_t wifi_connect_hdl;
 TaskHandle_t server_hdl;
 // TaskHandle_t testTaskHandle;
+
+bool WIFI_SET = false;
+bool INFLUX_SET = false;
 
 void setup() {
 	Serial.begin(115200);
@@ -109,9 +109,17 @@ void readConfig(void* arg) {
 		Serial.print("% ");
 		Serial.println(input);
 		cli.parse(input);
-		if (!cli.available()) continue;
 
-		// xEventGroupSetBits(wifi_status_event_group, BIT2);
+		if (WIFI_SET) {
+			Serial.println("wifi set");
+			xEventGroupClearBits(wifi_status_event_group, BIT1);
+			xEventGroupSetBits(wifi_status_event_group, BIT0);
+			WIFI_SET = false;
+		} else if (INFLUX_SET) {
+			Serial.println("influx set");
+			xEventGroupSetBits(wifi_status_event_group, BIT2);
+			INFLUX_SET = false;
+		}
 	}
 }
 
@@ -124,18 +132,24 @@ void WiFiSend(void* param) {
 		xEventGroupWaitBits(wifi_status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
 		Serial.println("wifi send started");
 
+		InfluxDBClient client = setupInfluxd();
 		if (client.validateConnection()) {
 			Serial.println("Connected to InfluxDB: " + client.getServerUrl());
 		} else {
 			Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
 			vTaskSuspend(NULL); // handle exception?
 		}
-
 		Point sensor("car");
 		sensor.addTag("device", DEVICE);
 			
 		while (true) {
 			logger = NULL;
+
+			EventBits_t uxBits = xEventGroupWaitBits(wifi_status_event_group, BIT2, pdTRUE, pdFALSE, 0);
+			if ((uxBits & BIT2) == BIT2) {
+				Serial.println("config set, restart influx task");
+				break;
+			}
 
 			if (!q.isEmpty()) {
 				// Serial.println("q not empty");
@@ -384,35 +398,27 @@ void WiFiConnect(void *parameter) {
 		xEventGroupWaitBits(wifi_status_event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
 		
 		WiFi.mode(WIFI_STA);
-		WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+		WiFi.begin(wifi_SSID().c_str(), wifi_password().c_str());
+
+		Serial.println("WiFi connecting");
+		unsigned long timer = millis();
+		while (WiFi.status() != WL_CONNECTED && millis() - timer < 4200) {
+			Serial.print(".");
+			vTaskDelay(420 / portTICK_PERIOD_MS);
+		}
 
 		if (WiFi.status() == WL_CONNECTED) {
+			// timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+			configTzTime(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+			Serial.print("Connected, local IP: ");
+			Serial.println(WiFi.localIP());
 			xEventGroupSetBits(wifi_status_event_group, BIT1);
-			continue;
+		} else {
+			Serial.println("could not connect, retry in 5 secs");
+			WiFi.disconnect();
+			vTaskDelay(5000 / portTICK_PERIOD_MS);
+			xEventGroupSetBits(wifi_status_event_group, BIT0);
 		}
-
-		Serial.println("connecting to WiFi");
-		unsigned long timer = millis();
-		while (WiFi.status() != WL_CONNECTED) {
-			Serial.println("into wifi connect loop");
-			if (millis() - timer < 5000) {
-				Serial.print(".");
-				vTaskDelay(500 / portTICK_PERIOD_MS);
-			} else {
-				Serial.println("could not connect to wifi, retry in 5 secs");
-				vTaskDelay(5000 / portTICK_PERIOD_MS);
-				WiFi.disconnect();
-				WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-				Serial.println("connecting to WiFi");
-				timer = millis();
-			}
-		}
-			
-		// timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
-		configTzTime(TZ_INFO, "pool.ntp.org", "time.nis.gov");
-    	Serial.print("wifi connected, local IP: ");
-		Serial.println(WiFi.localIP());
-		xEventGroupSetBits(wifi_status_event_group, BIT1);
 	}
 }
 

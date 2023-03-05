@@ -1,5 +1,6 @@
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
+#include "preferencesCLI.h"
 #include "tokens.h"
 #include "logger.h"
 #define WiFi_TX_TASK_NAME "WiFi tx"
@@ -17,10 +18,10 @@ InfluxDBClient setupInfluxd() {
     InfluxDBClient client (
         // InfluxDB client instance with preconfigured InfluxCloud certificate
 
-        INFLUXDB_URL, // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
+        influx_URL(), // InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
         "solarcar", // InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
         INFLUXDB_BUCKET, // InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
-        INFLUXDB_TOKEN,
+        influx_token(),
         InfluxDbCloud2CACert
         
     );

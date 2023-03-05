@@ -7,11 +7,19 @@
 #define ARG_PWD "wifi pswd,pwd"
 #define ARG_INFLUXTOKEN "influx token,t"
 #define ARG_INFLUXURL "influx URL,l"
+#define ARG_INFLUXBUCKET "influx buckt,b"
+// #define ARG_INFLUXORG "influx org, o"
+// #define ARG_TZINFO "tzinfo,tz"
+// #define ARG_CANFREQ "can freq, fr"
+
 #define ARG_LISTCONFIG "ls,list"
 #define ARG_RESTART "restart,done"
 #define ARG_CLEAR "clearall"
 
 #define NOENTRY "noentry"
+
+extern bool WIFI_SET;
+extern bool INFLUX_SET;
 
 void configCmdCallback(cmd* c) {
   Command cmd(c);
@@ -51,10 +59,10 @@ void configCmdCallback(cmd* c) {
 
       String s = "not set";
       String value = configStorage.getString(argName.c_str(), s);
-      Serial.printf("%s\t\t-%s\t\t%s\n"
+      Serial.printf("%s\t\t-%s\t\t"
         , argName.substring(0, argName.indexOf(','))
-        , argName.substring(argName.indexOf(',') + 1)
-        , value);
+        , argName.substring(argName.indexOf(',') + 1));
+      Serial.println(value);
     }
     Serial.print("\n\n");
     
@@ -68,11 +76,16 @@ void configCmdCallback(cmd* c) {
     if (value != NOENTRY) {
       notTrivial = true;
       String argName = arg.getName();
+      const char* argn = argName.c_str();
 
-      if (configStorage.putString(argName.c_str(), value.c_str()) > 0) {
-        Serial.printf("successfully saved %s: %s\n"
-          , argName.substring(0, argName.indexOf(','))
-          , value);
+      if (configStorage.putString(argn, value.c_str()) > 0) {
+        Serial.printf("successfully saved %s, ", argName.substring(0, argName.indexOf(',')));
+        Serial.println(value);
+        
+        if (strstr(argn, "wifi") != NULL)
+          WIFI_SET = true;
+        else if (strstr(argn, "influx") != NULL)
+          INFLUX_SET = true;
       } else {
         Serial.println("an error occurred saving configuration, please try again");
       }
@@ -110,9 +123,38 @@ SimpleCLI setupCLI() {
 	config.addArg(ARG_PWD, NOENTRY);
 	config.addArg(ARG_INFLUXTOKEN, NOENTRY);
 	config.addArg(ARG_INFLUXURL, NOENTRY);
+  config.addArg(ARG_INFLUXBUCKET, NOENTRY);
 	config.addFlagArg(ARG_LISTCONFIG);
 	config.addFlagArg(ARG_RESTART);
 	config.addFlagArg(ARG_CLEAR);
 
   return cli;
+}
+
+String getConfigStorageString(const char* key) {
+  Preferences p;
+  p.begin("general");
+  String v = p.getString(key);
+  p.end();
+  return v;
+}
+
+String wifi_SSID() {
+  return getConfigStorageString(ARG_SSID);
+}
+
+String wifi_password() {
+  return getConfigStorageString(ARG_PWD);
+}
+
+String influx_URL() {
+  return getConfigStorageString(ARG_INFLUXURL);
+}
+
+String influx_token() {
+  return getConfigStorageString(ARG_INFLUXTOKEN);
+}
+
+String influx_bucket() {
+  return getConfigStorageString(ARG_INFLUXBUCKET);
 }
