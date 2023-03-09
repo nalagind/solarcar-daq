@@ -137,7 +137,9 @@ void WiFiSend(void* param) {
 			Serial.println("Connected to InfluxDB: " + client.getServerUrl());
 		} else {
 			Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
-			vTaskSuspend(NULL); // handle exception?
+			xEventGroupSetBits(wifi_status_event_group, BIT1);
+			vTaskDelay(3000);
+			continue;
 		}
 		Point sensor("car");
 		sensor.addTag("device", DEVICE);

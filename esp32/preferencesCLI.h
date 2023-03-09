@@ -6,11 +6,14 @@
 #define ARG_SSID "wifi ssid,ssid"
 #define ARG_PWD "wifi pswd,pwd"
 #define ARG_INFLUXTOKEN "influx token,t"
-#define ARG_INFLUXURL "influx URL,l"
+#define ARG_INFLUXURL "influx URL,url"
 #define ARG_INFLUXBUCKET "influx buckt,b"
 // #define ARG_INFLUXORG "influx org, o"
 // #define ARG_TZINFO "tzinfo,tz"
 // #define ARG_CANFREQ "can freq, fr"
+#define ARG_SDFILENAME "sd filename,fn"
+#define ARG_SAVEPROFILE "save"
+#define ARG_LOADPROFILE "load"
 
 #define ARG_LISTCONFIG "ls,list"
 #define ARG_RESTART "restart,done"
@@ -118,7 +121,6 @@ SimpleCLI setupCLI() {
 
   cli.setOnError(errorCallback);
 	config = cli.addCommand("config", configCmdCallback);
-    // config = cli.addCommand("config");
 	config.addArg(ARG_SSID, NOENTRY);
 	config.addArg(ARG_PWD, NOENTRY);
 	config.addArg(ARG_INFLUXTOKEN, NOENTRY);
