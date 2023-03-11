@@ -12,13 +12,15 @@
 // #define ARG_TZINFO "tzinfo,tz"
 // #define ARG_CANFREQ "can freq, fr"
 #define ARG_SDFILENAME "sd filename,fn"
-#define ARG_SAVEPROFILE "save"
-#define ARG_LOADPROFILE "load"
+#define ARG_PROFILESAVE "save"
+#define ARG_PROFILELOAD "load"
+#define ARG_PROFILEDELETE "delete"
 
 #define ARG_LISTCONFIG "ls,list"
 #define ARG_RESTART "restart,done"
 #define ARG_CLEAR "clearall"
 
+#define PROFILE_DEFAULT "general"
 #define NOENTRY "noentry"
 
 extern bool WIFI_SET;
