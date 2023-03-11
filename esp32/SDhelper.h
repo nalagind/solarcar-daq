@@ -1,16 +1,6 @@
 #include "FS.h"
 #include "SD.h"
 
-void setupSD(SPIClass& spi) {
-	spi.begin(5, 4, 18, 19);
-	if (!SD.begin(19, spi)) {
-        Serial.println("no SD card attached");
-        while (true);
-    } else {
-		Serial.println("SD mounted");
-    }
-}
-
 void writeFile(fs::FS &fs, const char * path, const char * message){
     Serial.printf("Writing file: %s\n", path);
 
@@ -67,4 +57,17 @@ void readFile(fs::FS &fs, const char * path){
         Serial.write(file.read());
     }
     file.close();
+}
+
+bool setupSD(SPIClass& spi) {
+	spi.begin(5, 4, 18, 19);
+	if (!SD.begin(19, spi)) {
+        Serial.println("but could not mount");
+        return false;
+    }
+
+    createDir(SD, FOLDERNAME);
+    writeFile(SD, FILENAME, "time,registrar,CAN id,CAN data,telemetry,source,sn,info\n");
+    Serial.println("and mounted");
+    return true;
 }

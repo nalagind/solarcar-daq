@@ -21,24 +21,33 @@ typedef struct CAN2telemetry {
 cppQueue q(sizeof(CAN2telemetry), 111, LIFO, true);
 QueueHandle_t loggingQ = xQueueCreate(20, sizeof(EventLogger*));
 
-EventGroupHandle_t wifi_status_event_group;
+EventGroupHandle_t status_event_group;
 
 TaskHandle_t receiveTaskHandle;
 TaskHandle_t wifi_tx_hdl;
 TaskHandle_t wifi_connect_hdl;
 TaskHandle_t server_hdl;
-// TaskHandle_t testTaskHandle;
+TaskHandle_t sd_hdl;
 
 bool WIFI_SET = false;
 bool INFLUX_SET = false;
+
+void IRAM_ATTR sd_detect_isr() {
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    if (digitalRead(21) == LOW) {
+		vTaskNotifyGiveFromISR(sd_hdl, &xHigherPriorityTaskWoken);
+	}
+}
 
 void setup() {
 	Serial.begin(115200);
 
 	setupCANDriver();
 	
-	wifi_status_event_group = xEventGroupCreate();
-	xEventGroupSetBits(wifi_status_event_group, BIT0);
+	status_event_group = xEventGroupCreate();
+	xEventGroupSetBits(status_event_group, BIT0);
+
+	attachInterrupt(21, sd_detect_isr, CHANGE);
 
 	xTaskCreatePinnedToCore(
 		WiFiSend
@@ -83,8 +92,9 @@ void setup() {
 		, 10240
 		, NULL
 		, 2
-		, NULL
+		, &sd_hdl
 		, 1);
+	xTaskNotifyGive(sd_hdl);
 
 	xTaskCreate(
 		readConfig
@@ -112,12 +122,12 @@ void readConfig(void* arg) {
 
 		if (WIFI_SET) {
 			Serial.println("wifi set");
-			xEventGroupClearBits(wifi_status_event_group, BIT1);
-			xEventGroupSetBits(wifi_status_event_group, BIT0);
+			xEventGroupClearBits(status_event_group, BIT1);
+			xEventGroupSetBits(status_event_group, BIT0);
 			WIFI_SET = false;
 		} else if (INFLUX_SET) {
 			Serial.println("influx set");
-			xEventGroupSetBits(wifi_status_event_group, BIT2);
+			xEventGroupSetBits(status_event_group, BIT2);
 			INFLUX_SET = false;
 		}
 	}
@@ -129,15 +139,15 @@ void WiFiSend(void* param) {
 	EventLogger *logger;
 	
 	while (true) {
-		xEventGroupWaitBits(wifi_status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
-		Serial.println("wifi send started");
+		xEventGroupWaitBits(status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
+		// Serial.println("wifi send started");
 
 		InfluxDBClient client = setupInfluxd();
 		if (client.validateConnection()) {
 			Serial.println("Connected to InfluxDB: " + client.getServerUrl());
 		} else {
-			Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
-			xEventGroupSetBits(wifi_status_event_group, BIT1);
+			// Serial.println("InfluxDB connection failed: " + client.getLastErrorMessage());
+			xEventGroupSetBits(status_event_group, BIT1);
 			vTaskDelay(3000);
 			continue;
 		}
@@ -147,7 +157,7 @@ void WiFiSend(void* param) {
 		while (true) {
 			logger = NULL;
 
-			EventBits_t uxBits = xEventGroupWaitBits(wifi_status_event_group, BIT2, pdTRUE, pdFALSE, 0);
+			EventBits_t uxBits = xEventGroupWaitBits(status_event_group, BIT2, pdTRUE, pdFALSE, 0);
 			if ((uxBits & BIT2) == BIT2) {
 				Serial.println("config set, restart influx task");
 				break;
@@ -190,8 +200,8 @@ void WiFiSend(void* param) {
 					vTaskDelay(1 / portTICK_PERIOD_MS);
 				} else {
 					Serial.println("disconneted, hand over to keep alive");
-					xEventGroupClearBits(wifi_status_event_group, BIT1);
-					xEventGroupSetBits(wifi_status_event_group, BIT0);
+					xEventGroupClearBits(status_event_group, BIT1);
+					xEventGroupSetBits(status_event_group, BIT0);
 					break;
 				}
 			} else {
@@ -224,7 +234,7 @@ void simpleServer(void *param)
 	digitalWrite(rgb_blue, HIGH);
 
 	while (true) {
-		xEventGroupWaitBits(wifi_status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
+		xEventGroupWaitBits(status_event_group, BIT1, pdFALSE, pdFALSE, portMAX_DELAY);
 		Serial.println("simple server started");
 
 		Serial.println();
@@ -239,8 +249,8 @@ void simpleServer(void *param)
 			if (WiFi.status() != WL_CONNECTED) {
 				Serial.println("disconneted, hand over to keep alive");
 				// xTaskNotifyGive(wifi_connect_hdl);
-				xEventGroupClearBits(wifi_status_event_group, BIT1);
-				xEventGroupSetBits(wifi_status_event_group, BIT0);
+				xEventGroupClearBits(status_event_group, BIT1);
+				xEventGroupSetBits(status_event_group, BIT0);
 				break;
 			}
 
@@ -397,7 +407,7 @@ void simpleServer(void *param)
 
 void WiFiConnect(void *parameter) {
 	while (true) {
-		xEventGroupWaitBits(wifi_status_event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
+		xEventGroupWaitBits(status_event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
 		
 		WiFi.mode(WIFI_STA);
 		WiFi.begin(wifi_SSID().c_str(), wifi_password().c_str());
@@ -414,12 +424,12 @@ void WiFiConnect(void *parameter) {
 			configTzTime(TZ_INFO, "pool.ntp.org", "time.nis.gov");
 			Serial.print("Connected, local IP: ");
 			Serial.println(WiFi.localIP());
-			xEventGroupSetBits(wifi_status_event_group, BIT1);
+			xEventGroupSetBits(status_event_group, BIT1);
 		} else {
 			Serial.println("could not connect, retry in 5 secs");
 			WiFi.disconnect();
 			vTaskDelay(5000 / portTICK_PERIOD_MS);
-			xEventGroupSetBits(wifi_status_event_group, BIT0);
+			xEventGroupSetBits(status_event_group, BIT0);
 		}
 	}
 }
@@ -456,15 +466,28 @@ void CANreceive(void* param) {
 
 void SDwrite(void* param) {
 	SPIClass spi = SPIClass();
-	setupSD(spi);
-    createDir(SD, FOLDERNAME);
-    writeFile(SD, FILENAME, "time,registrar,CAN id,CAN data,telemetry,source,sn,info\n");
-	Serial.println("header written");
-
-	EventLogger *logger;
-	char recordLine[200];
 
 	while (true) {
+		if (digitalRead(21) == LOW) {
+			if (ulTaskNotifyTake(pdTRUE, 0) != 0) {
+				if (!setupSD(spi)) {
+					xTaskNotifyGive(sd_hdl);
+					delay(1000);
+				}
+			}
+		} else {
+			uint32_t ntft = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+			Serial.println(ntft);
+			Serial.print("SD attached ");
+			if (!setupSD(spi)) {
+				xTaskNotifyGive(sd_hdl);
+				delay(1000);
+			}
+		}
+
+		EventLogger *logger;
+		char recordLine[200];
+
 		logger = NULL;
 		recordLine[0] = 0;
 
@@ -472,6 +495,12 @@ void SDwrite(void* param) {
 		if (logger == NULL) { continue; }
 		logger->generateLine(recordLine);
 
+		if (digitalRead(21) == HIGH) {
+			Serial.println("SD detached");
+			delete logger;
+			continue;
+		}
+		delay(50);
 		appendFile(SD, FILENAME, recordLine);
 		Serial.println();
 		readFile(SD, FILENAME);
