@@ -62,12 +62,12 @@ void readFile(fs::FS &fs, const char * path){
 bool setupSD(SPIClass& spi) {
 	spi.begin(5, 4, 18, 19);
 	if (!SD.begin(19, spi)) {
-        Serial.println("but could not mount");
+        Serial.println("...but mounting failed");
         return false;
     }
 
     createDir(SD, FOLDERNAME);
     writeFile(SD, FILENAME, "time,registrar,CAN id,CAN data,telemetry,source,sn,info\n");
-    Serial.println("and mounted");
+    Serial.println("...and mounted");
     return true;
 }

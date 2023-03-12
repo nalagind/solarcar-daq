@@ -94,7 +94,6 @@ void setup() {
 		, 2
 		, &sd_hdl
 		, 1);
-	xTaskNotifyGive(sd_hdl);
 
 	xTaskCreate(
 		readConfig
@@ -466,6 +465,9 @@ void CANreceive(void* param) {
 
 void SDwrite(void* param) {
 	SPIClass spi = SPIClass();
+	if (digitalRead(21) == LOW) {
+		xTaskNotifyGive(sd_hdl);
+	}
 
 	while (true) {
 		if (digitalRead(21) == LOW) {
@@ -478,7 +480,7 @@ void SDwrite(void* param) {
 		} else {
 			uint32_t ntft = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 			Serial.println(ntft);
-			Serial.print("SD attached ");
+			Serial.print("SD attached...");
 			if (!setupSD(spi)) {
 				xTaskNotifyGive(sd_hdl);
 				delay(1000);
