@@ -31,6 +31,7 @@ TaskHandle_t sd_hdl;
 
 bool WIFI_SET = false;
 bool INFLUX_SET = false;
+bool CAN_SET = false;
 
 void IRAM_ATTR sd_detect_isr() {
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -41,8 +42,6 @@ void IRAM_ATTR sd_detect_isr() {
 
 void setup() {
 	Serial.begin(115200);
-
-	setupCANDriver();
 	
 	status_event_group = xEventGroupCreate();
 	xEventGroupSetBits(status_event_group, BIT0);
@@ -442,6 +441,8 @@ void CANreceive(void* param) {
 	unsigned long sn = 1;
 
 	EventLogger *logger;
+
+	setupCANDriver();
 
 	while (true) {
 		logger = NULL;

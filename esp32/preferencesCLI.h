@@ -12,19 +12,22 @@
 // #define ARG_TZINFO "tzinfo,tz"
 // #define ARG_CANFREQ "can freq, fr"
 #define ARG_SDFILENAME "sd filename,fn"
-#define ARG_PROFILESAVE "save"
-#define ARG_PROFILELOAD "load"
-#define ARG_PROFILEDELETE "delete"
+// #define ARG_PROFILESAVE "save"
+// #define ARG_PROFILELOAD "load"
+// #define ARG_PROFILEDELETE "delete"
+#define ARG_CANMODE "can loopback,m"
 
 #define ARG_LISTCONFIG "ls,list"
 #define ARG_RESTART "restart,done"
 #define ARG_CLEAR "clearall"
 
-#define PROFILE_DEFAULT "general"
+// #define PROFILE_DEFAULT "general"
+#define CANMODE_LOOPBACK "loopback"
 #define NOENTRY "noentry"
 
 extern bool WIFI_SET;
 extern bool INFLUX_SET;
+extern bool CAN_SET;
 
 void configCmdCallback(cmd* c) {
   Command cmd(c);
@@ -62,8 +65,7 @@ void configCmdCallback(cmd* c) {
       Argument arg = cmd.getArg(i);
       String argName = arg.getName();
 
-      String s = "not set";
-      String value = configStorage.getString(argName.c_str(), s);
+      String value = configStorage.getString(argName.c_str(), String("not set"));
       Serial.printf("%s\t\t-%s\t\t"
         , argName.substring(0, argName.indexOf(','))
         , argName.substring(argName.indexOf(',') + 1));
@@ -71,6 +73,24 @@ void configCmdCallback(cmd* c) {
     }
     Serial.print("\n\n");
     
+    configStorage.end();
+    return;
+  }
+
+  if (cmd.getArg(ARG_CANMODE).isSet()) {
+    String argName = String(ARG_CANMODE);
+    if (configStorage.getString(ARG_CANMODE) == CANMODE_LOOPBACK) {
+      configStorage.remove(ARG_CANMODE);
+      Serial.println("can is now in normal");
+    } else {
+      if (configStorage.putString(ARG_CANMODE, CANMODE_LOOPBACK) > 0) {
+        Serial.println("can is now in loopback");
+      } else {
+        Serial.println("an error occurred saving configuration, please try again");
+      }
+    }
+    
+    CAN_SET = true;
     configStorage.end();
     return;
   }
@@ -91,6 +111,8 @@ void configCmdCallback(cmd* c) {
           WIFI_SET = true;
         else if (strstr(argn, "influx") != NULL)
           INFLUX_SET = true;
+        else if (strstr(argn, "can") != NULL)
+          CAN_SET = true;
       } else {
         Serial.println("an error occurred saving configuration, please try again");
       }
@@ -128,6 +150,7 @@ SimpleCLI setupCLI() {
 	config.addArg(ARG_INFLUXTOKEN, NOENTRY);
 	config.addArg(ARG_INFLUXURL, NOENTRY);
   config.addArg(ARG_INFLUXBUCKET, NOENTRY);
+  config.addFlagArg(ARG_CANMODE, NOENTRY);
 	config.addFlagArg(ARG_LISTCONFIG);
 	config.addFlagArg(ARG_RESTART);
 	config.addFlagArg(ARG_CLEAR);
@@ -161,4 +184,11 @@ String influx_token() {
 
 String influx_bucket() {
   return getConfigStorageString(ARG_INFLUXBUCKET);
+}
+
+bool can_mode() {
+  if (getConfigStorageString(ARG_CANMODE) == CANMODE_LOOPBACK)
+    return true;
+  else
+    return false;
 }
