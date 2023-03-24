@@ -91,6 +91,7 @@ void configCmdCallback(cmd* c) {
     }
     
     CAN_SET = true;
+    Serial.println("ok");
     configStorage.end();
     return;
   }
@@ -186,7 +187,7 @@ String influx_bucket() {
   return getConfigStorageString(ARG_INFLUXBUCKET);
 }
 
-bool can_mode() {
+bool can_is_loopback() {
   if (getConfigStorageString(ARG_CANMODE) == CANMODE_LOOPBACK)
     return true;
   else

@@ -6,9 +6,12 @@
 #include "preferencesCLI.h"
 #define CAN_RX_TASK_NAME "CAN receive"
 
+extern SemaphoreHandle_t tx_sem;
+extern SemaphoreHandle_t ctrl_sem;
+
 void setupCANDriver() {
     twai_general_config_t general_config = {
-        .mode = can_mode() ? TWAI_MODE_NO_ACK : TWAI_MODE_NORMAL,
+        .mode = can_is_loopback() ? TWAI_MODE_NO_ACK : TWAI_MODE_NORMAL,
         .tx_io = (gpio_num_t)GPIO_NUM_23,
         .rx_io = (gpio_num_t)GPIO_NUM_22,
         .clkout_io = (gpio_num_t)TWAI_IO_UNUSED,
@@ -144,17 +147,18 @@ class CAN_RX_Recorder: public EventLogger {
   }
 };
 
-// static void twai_transmit_task(void *arg)
-// {
-//     twai_message_t tx_msg = {.data_length_code = 1, .identifier = 0x555, .self = 1};
-//     for (int i = 0; i < 3; i++) {
-//         xSemaphoreTake(tx_sem, portMAX_DELAY);
-//         for (int i = 0; i < 100; i++) {
-//             //Transmit messages using self reception request
-//             tx_msg.data[0] = i;
-//             ESP_ERROR_CHECK(twai_transmit(&tx_msg, portMAX_DELAY));
-//             vTaskDelay(pdMS_TO_TICKS(10));
-//         }
-//     }
-//     vTaskDelete(NULL);
-// }
+static void twai_transmit_task(void *arg)
+{
+    twai_message_t tx_msg = {.self = 1, .identifier = 0x555, .data_length_code = 1};
+    while (true) {
+        xSemaphoreTake(tx_sem, portMAX_DELAY);
+        for (int i = 0; i < 50; i++) {
+            //Transmit messages using self reception request
+            tx_msg.data[0] = i;
+            ESP_ERROR_CHECK(twai_transmit(&tx_msg, portMAX_DELAY));
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        xSemaphoreGive(ctrl_sem);
+    }
+    vTaskDelete(NULL);
+}

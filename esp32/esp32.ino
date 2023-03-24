@@ -3,6 +3,7 @@
 #define FILENAME FOLDERNAME"/data.csv"
 #define CAN_DECODE_BASE 10
 #define OVERWRITE_DATA
+#define LOG_TAG "DAQ"
 
 #include "tokens.h"
 #include "InfluxdbHelper.h"
@@ -28,6 +29,11 @@ TaskHandle_t wifi_tx_hdl;
 TaskHandle_t wifi_connect_hdl;
 TaskHandle_t server_hdl;
 TaskHandle_t sd_hdl;
+TaskHandle_t can_tx_hdl;
+
+// static SemaphoreHandle_t rx_sem;
+SemaphoreHandle_t tx_sem;
+SemaphoreHandle_t ctrl_sem;
 
 bool WIFI_SET = false;
 bool INFLUX_SET = false;
@@ -44,7 +50,6 @@ void setup() {
 	Serial.begin(115200);
 	
 	status_event_group = xEventGroupCreate();
-	xEventGroupSetBits(status_event_group, BIT0);
 
 	attachInterrupt(21, sd_detect_isr, CHANGE);
 
@@ -74,15 +79,23 @@ void setup() {
 		, 3
 		, &wifi_connect_hdl
 		, 0);
-	// xTaskNotifyGive(wifi_connect_hdl);
 
 	xTaskCreatePinnedToCore(
 		CANreceive
 		, "can rx"
 		, 10240
 		, NULL
-		, 3
+		, 4
 		, &receiveTaskHandle
+		, 1);
+
+	xTaskCreatePinnedToCore(
+		CANcontrol
+		, "can control"
+		, 10240
+		, NULL
+		, 5
+		, NULL
 		, 1);
 		
 	xTaskCreatePinnedToCore(
@@ -127,6 +140,10 @@ void readConfig(void* arg) {
 			Serial.println("influx set");
 			xEventGroupSetBits(status_event_group, BIT2);
 			INFLUX_SET = false;
+		} else if (CAN_SET) {
+			Serial.println("can mode set");
+			xEventGroupSetBits(status_event_group, BIT3);
+			CAN_SET = false;
 		}
 	}
 }
@@ -404,6 +421,7 @@ void simpleServer(void *param)
 }
 
 void WiFiConnect(void *parameter) {
+	xEventGroupSetBits(status_event_group, BIT0);
 	while (true) {
 		xEventGroupWaitBits(status_event_group, BIT0, pdTRUE, pdFALSE, portMAX_DELAY);
 		
@@ -442,8 +460,8 @@ void CANreceive(void* param) {
 
 	EventLogger *logger;
 
-	setupCANDriver();
-
+	// xSemaphoreTake(rx_sem, portMAX_DELAY);
+	
 	while (true) {
 		logger = NULL;
 
@@ -459,6 +477,47 @@ void CANreceive(void* param) {
 				xQueueSend(loggingQ, &logger, portMAX_DELAY);
 				transmitQitem = {msg, logger->getTime_ms(), sn++};
 				q.push(&transmitQitem);
+			}
+		}
+	}
+}
+
+void CANcontrol(void *arg) {
+	while (true) {
+		setupCANDriver();
+		// ESP_LOGI(LOG_TAG, "driver started");
+		Serial.println("driver started");
+
+		// xSemaphoreGive(rx_sem);
+		if (can_is_loopback()) {
+			xTaskCreatePinnedToCore(
+				twai_transmit_task
+				, "can tx"
+				, 10240
+				, NULL
+				, 3
+				, &can_tx_hdl
+				, 1);
+
+			while (true) {
+				xSemaphoreGive(tx_sem);
+				// ESP_LOGI(LOG_TAG, "loopback tx task started");
+				Serial.println("loopback tx task started");
+				xSemaphoreTake(ctrl_sem, portMAX_DELAY);
+				EventBits_t uxBits = xEventGroupWaitBits(status_event_group, BIT3, pdTRUE, pdFALSE, 0);
+				if ((uxBits & BIT3) == BIT3) {
+					Serial.println("config set, restart can");
+					ESP_ERROR_CHECK(twai_stop());
+					vTaskDelete(can_tx_hdl);
+					break;
+				}
+				vTaskDelay(1000);
+			}
+		} else {
+			EventBits_t uxBits = xEventGroupWaitBits(status_event_group, BIT3, pdTRUE, pdFALSE, portMAX_DELAY);
+			if ((uxBits & BIT3) == BIT3) {
+				Serial.println("config set, restart can");
+				ESP_ERROR_CHECK(twai_stop());
 			}
 		}
 	}
