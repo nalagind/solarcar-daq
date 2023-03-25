@@ -31,7 +31,7 @@ TaskHandle_t server_hdl;
 TaskHandle_t sd_hdl;
 TaskHandle_t can_tx_hdl;
 
-// static SemaphoreHandle_t rx_sem;
+SemaphoreHandle_t rx_sem;
 SemaphoreHandle_t tx_sem;
 SemaphoreHandle_t ctrl_sem;
 
@@ -50,6 +50,9 @@ void setup() {
 	Serial.begin(115200);
 	
 	status_event_group = xEventGroupCreate();
+    tx_sem = xSemaphoreCreateBinary();
+	rx_sem = xSemaphoreCreateBinary();
+	ctrl_sem = xSemaphoreCreateBinary();
 
 	attachInterrupt(21, sd_detect_isr, CHANGE);
 
@@ -85,7 +88,7 @@ void setup() {
 		, "can rx"
 		, 10240
 		, NULL
-		, 4
+		, 3
 		, &receiveTaskHandle
 		, 1);
 
@@ -460,7 +463,9 @@ void CANreceive(void* param) {
 
 	EventLogger *logger;
 
-	// xSemaphoreTake(rx_sem, portMAX_DELAY);
+	xSemaphoreTake(rx_sem, portMAX_DELAY);
+	int count;
+	Serial.println("can rx started");
 	
 	while (true) {
 		logger = NULL;
@@ -472,6 +477,7 @@ void CANreceive(void* param) {
 		if (alertsTriggered & TWAI_ALERT_RX_DATA) {
 			while (twai_receive(&msg, 0) == ESP_OK) {
 				printCANmessage(msg);
+				Serial.printf("can received %d\n", ++count);
 
 				logger = new CAN_RX_Recorder(msg, sn);
 				xQueueSend(loggingQ, &logger, portMAX_DELAY);
@@ -488,14 +494,14 @@ void CANcontrol(void *arg) {
 		// ESP_LOGI(LOG_TAG, "driver started");
 		Serial.println("driver started");
 
-		// xSemaphoreGive(rx_sem);
+		xSemaphoreGive(rx_sem);
 		if (can_is_loopback()) {
 			xTaskCreatePinnedToCore(
 				twai_transmit_task
 				, "can tx"
 				, 10240
 				, NULL
-				, 3
+				, 4
 				, &can_tx_hdl
 				, 1);
 
@@ -509,6 +515,7 @@ void CANcontrol(void *arg) {
 					Serial.println("config set, restart can");
 					ESP_ERROR_CHECK(twai_stop());
 					vTaskDelete(can_tx_hdl);
+					ESP_ERROR_CHECK(twai_driver_uninstall());
 					break;
 				}
 				vTaskDelay(1000);
@@ -518,6 +525,7 @@ void CANcontrol(void *arg) {
 			if ((uxBits & BIT3) == BIT3) {
 				Serial.println("config set, restart can");
 				ESP_ERROR_CHECK(twai_stop());
+				ESP_ERROR_CHECK(twai_driver_uninstall());
 			}
 		}
 	}

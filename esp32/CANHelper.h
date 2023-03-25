@@ -149,13 +149,19 @@ class CAN_RX_Recorder: public EventLogger {
 
 static void twai_transmit_task(void *arg)
 {
-    twai_message_t tx_msg = {.self = 1, .identifier = 0x555, .data_length_code = 1};
+    twai_message_t tx_msg;
+    tx_msg.identifier = 0x42;
+    tx_msg.data_length_code = 1;
+    tx_msg.self = 1;
+    int count;
+
     while (true) {
         xSemaphoreTake(tx_sem, portMAX_DELAY);
         for (int i = 0; i < 50; i++) {
             //Transmit messages using self reception request
             tx_msg.data[0] = i;
             ESP_ERROR_CHECK(twai_transmit(&tx_msg, portMAX_DELAY));
+            Serial.printf("can tx %d\n", ++count);
             vTaskDelay(pdMS_TO_TICKS(10));
         }
         xSemaphoreGive(ctrl_sem);
