@@ -1,6 +1,4 @@
 #define DEVICE "ESP32"
-#define FOLDERNAME "/Solar Car Trip Data"
-#define FILENAME FOLDERNAME"/data.csv"
 #define CAN_DECODE_BASE 10
 #define OVERWRITE_DATA
 #define LOG_TAG "DAQ"
@@ -20,7 +18,7 @@ typedef struct CAN2telemetry {
 } CAN2telemetry;
 
 cppQueue q(sizeof(CAN2telemetry), 111, LIFO, true);
-QueueHandle_t loggingQ = xQueueCreate(20, sizeof(EventLogger*));
+QueueHandle_t loggingQ = xQueueCreate(50, sizeof(EventLogger*));
 
 EventGroupHandle_t status_event_group;
 
@@ -477,7 +475,7 @@ void CANreceive(void* param) {
 		if (alertsTriggered & TWAI_ALERT_RX_DATA) {
 			while (twai_receive(&msg, 0) == ESP_OK) {
 				printCANmessage(msg);
-				Serial.printf("can received %d\n", ++count);
+				// Serial.printf("can received %d\n", ++count);
 
 				logger = new CAN_RX_Recorder(msg, sn);
 				xQueueSend(loggingQ, &logger, portMAX_DELAY);
@@ -512,22 +510,18 @@ void CANcontrol(void *arg) {
 				xSemaphoreTake(ctrl_sem, portMAX_DELAY);
 				EventBits_t uxBits = xEventGroupWaitBits(status_event_group, BIT3, pdTRUE, pdFALSE, 0);
 				if ((uxBits & BIT3) == BIT3) {
-					Serial.println("config set, restart can");
-					ESP_ERROR_CHECK(twai_stop());
 					vTaskDelete(can_tx_hdl);
-					ESP_ERROR_CHECK(twai_driver_uninstall());
 					break;
 				}
 				vTaskDelay(1000);
 			}
 		} else {
-			EventBits_t uxBits = xEventGroupWaitBits(status_event_group, BIT3, pdTRUE, pdFALSE, portMAX_DELAY);
-			if ((uxBits & BIT3) == BIT3) {
-				Serial.println("config set, restart can");
-				ESP_ERROR_CHECK(twai_stop());
-				ESP_ERROR_CHECK(twai_driver_uninstall());
-			}
+			xEventGroupWaitBits(status_event_group, BIT3, pdTRUE, pdFALSE, portMAX_DELAY);
 		}
+		
+		Serial.println("config set, restart can");
+		ESP_ERROR_CHECK(twai_stop());
+		ESP_ERROR_CHECK(twai_driver_uninstall());
 	}
 }
 
@@ -571,9 +565,7 @@ void SDwrite(void* param) {
 			continue;
 		}
 		delay(50);
-		appendFile(SD, FILENAME, recordLine);
-		Serial.println();
-		readFile(SD, FILENAME);
+		appendFile(SD, sd_filename().c_str(), recordLine);
 		Serial.println();
 
 		delete logger;

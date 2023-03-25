@@ -3,18 +3,19 @@
 #include <SimpleCLI.h>
 #include <Preferences.h>
 
-#define ARG_SSID "wifi ssid,ssid"
-#define ARG_PWD "wifi pswd,pwd"
+#define ARG_SSID "wifi ssid,w"
+#define ARG_PWD "wifi pswd,p"
 #define ARG_INFLUXTOKEN "influx token,t"
-#define ARG_INFLUXURL "influx URL,url"
+#define ARG_INFLUXURL "influx URL,l"
 #define ARG_INFLUXBUCKET "influx buckt,b"
 // #define ARG_INFLUXORG "influx org, o"
 // #define ARG_TZINFO "tzinfo,tz"
 // #define ARG_CANFREQ "can freq, fr"
-#define ARG_SDFILENAME "sd filename,fn"
+#define ARG_SDFILENAME "sd filename,n"
 // #define ARG_PROFILESAVE "save"
 // #define ARG_PROFILELOAD "load"
 // #define ARG_PROFILEDELETE "delete"
+#define ARG_SDOVERWRITE "sd overwrite,o"
 #define ARG_CANMODE "can loopback,m"
 
 #define ARG_LISTCONFIG "ls,list"
@@ -25,9 +26,21 @@
 #define CANMODE_LOOPBACK "loopback"
 #define NOENTRY "noentry"
 
+#define FOLDERNAME "/Solar Car Trip Data"
+#define FILENAME FOLDERNAME"/data.csv"
+
 extern bool WIFI_SET;
 extern bool INFLUX_SET;
 extern bool CAN_SET;
+
+void restart() {
+  Serial.print("Load new configuration and restart in ");
+  for (int i = 3; i > 0; i--) {
+    Serial.printf("%d ", i);
+    delay(1000);
+  }
+  esp_restart();
+}
 
 void configCmdCallback(cmd* c) {
   Command cmd(c);
@@ -36,14 +49,7 @@ void configCmdCallback(cmd* c) {
 
   int argCount = cmd.countArgs();
 
-  if (cmd.getArg(ARG_RESTART).isSet()) {
-    Serial.print("Load new configuration and restart in ");
-    for (int i = 3; i > 0; i--) {
-      Serial.printf("%d ", i);
-      delay(1000);
-    }
-    esp_restart();
-  }
+  if (cmd.getArg(ARG_RESTART).isSet()) restart();
 
   configStorage.begin("general");
 
@@ -59,13 +65,13 @@ void configCmdCallback(cmd* c) {
 
   if (cmd.getArg(ARG_LISTCONFIG).isSet()) {
     Serial.println("\nDAQ CONFIG MENU\nitem\t\t\tset with\tcurrent value");
-    Serial.println("-----------------------------------------------------------");
+    Serial.println("----------------------------------------------------------------");
 
     for (int i = 0; i < argCount - 3; i++) {
       Argument arg = cmd.getArg(i);
       String argName = arg.getName();
 
-      String value = configStorage.getString(argName.c_str(), String("not set"));
+      String value = configStorage.getString(argName.c_str(), String("not set or using default"));
       Serial.printf("%s\t\t-%s\t\t"
         , argName.substring(0, argName.indexOf(','))
         , argName.substring(argName.indexOf(',') + 1));
@@ -151,6 +157,8 @@ SimpleCLI setupCLI() {
 	config.addArg(ARG_INFLUXTOKEN, NOENTRY);
 	config.addArg(ARG_INFLUXURL, NOENTRY);
   config.addArg(ARG_INFLUXBUCKET, NOENTRY);
+  config.addArg(ARG_SDFILENAME, NOENTRY);
+  // config.addFlagArg(ARG_SDOVERWRITE, NOENTRY);
   config.addFlagArg(ARG_CANMODE, NOENTRY);
 	config.addFlagArg(ARG_LISTCONFIG);
 	config.addFlagArg(ARG_RESTART);
@@ -187,9 +195,14 @@ String influx_bucket() {
   return getConfigStorageString(ARG_INFLUXBUCKET);
 }
 
+String sd_filename() {
+  String n = getConfigStorageString(ARG_SDFILENAME);
+  if (n == "") return String(FILENAME);
+  else return (String(FOLDERNAME) + "/" + n);
+}
+
 bool can_is_loopback() {
   if (getConfigStorageString(ARG_CANMODE) == CANMODE_LOOPBACK)
     return true;
-  else
-    return false;
+  else return false;
 }

@@ -157,7 +157,7 @@ static void twai_transmit_task(void *arg)
 
     while (true) {
         xSemaphoreTake(tx_sem, portMAX_DELAY);
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 20; i++) {
             //Transmit messages using self reception request
             tx_msg.data[0] = i;
             ESP_ERROR_CHECK(twai_transmit(&tx_msg, portMAX_DELAY));
