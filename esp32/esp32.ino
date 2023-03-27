@@ -9,6 +9,7 @@
 #include "SPI.h"
 #include "SDhelper.h"
 #include "preferencesCLI.h"
+#include "uart_helper.h"
 #include <cppQueue.h>
 
 typedef struct CAN2telemetry {
@@ -123,14 +124,23 @@ void loop() {
 
 void readConfig(void* arg) {
 	SimpleCLI cli = setupCLI();
+	
+	uart_init();
+    uint8_t* rx_data = (uint8_t*) malloc(BUF_SIZE+1);
 
 	while (true) {
-		while (!Serial.available()) {}
-		
-		String input = Serial.readStringUntil('\n');
-		Serial.print("% ");
-		Serial.println(input);
-		cli.parse(input);
+        const int rxBytes = uart_read_bytes(UART_NUM_0, rx_data, BUF_SIZE, 800 / portTICK_PERIOD_MS);
+        if (rxBytes > 0) {
+            rx_data[rxBytes] = 0;
+            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, rx_data);
+            ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, rx_data, rxBytes, ESP_LOG_INFO);
+
+			Serial.print("% ");
+            uart_sendData(RX_TASK_TAG, (char*)rx_data);
+        } else {
+			continue;
+        }
+		cli.parse((char*)rx_data);
 
 		if (WIFI_SET) {
 			Serial.println("wifi set");
