@@ -26,7 +26,8 @@
 #define CANMODE_LOOPBACK "loopback"
 #define NOENTRY "noentry"
 
-#define FOLDERNAME "/Solar Car Trip Data"
+#define MOUNT_POINT "/sdcard"
+#define FOLDERNAME MOUNT_POINT"/Solar Car Trip Data"
 #define FILENAME FOLDERNAME"/data.csv"
 
 extern bool WIFI_SET;
@@ -196,9 +197,9 @@ String influx_bucket() {
 }
 
 String sd_filename() {
-  String n = getConfigStorageString(ARG_SDFILENAME);
-  if (n == "") return String(FILENAME);
-  else return (String(FOLDERNAME) + "/" + n);
+  String fn = getConfigStorageString(ARG_SDFILENAME);
+  if (fn == "") return String(FILENAME);
+  else return (String(FOLDERNAME) + "/" + fn);
 }
 
 bool can_is_loopback() {

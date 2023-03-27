@@ -7,7 +7,8 @@
 #include "InfluxdbHelper.h"
 #include "CANHelper.h"
 #include "SPI.h"
-#include "SDhelper.h"
+// #include "SDhelper.h"
+#include "SD_helper_IDF.h"
 #include "preferencesCLI.h"
 #include "uart_helper.h"
 #include <cppQueue.h>
@@ -536,15 +537,16 @@ void CANcontrol(void *arg) {
 }
 
 void SDwrite(void* param) {
-	SPIClass spi = SPIClass();
+	// SPIClass spi = SPIClass();
 	if (digitalRead(21) == LOW) {
 		xTaskNotifyGive(sd_hdl);
 	}
+	sdmmc_card_t *SD;
 
 	while (true) {
 		if (digitalRead(21) == LOW) {
 			if (ulTaskNotifyTake(pdTRUE, 0) != 0) {
-				if (!setupSD(spi)) {
+				if (!sd_init(SD)) {
 					xTaskNotifyGive(sd_hdl);
 					delay(1000);
 				}
@@ -553,7 +555,7 @@ void SDwrite(void* param) {
 			uint32_t ntft = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 			Serial.println(ntft);
 			Serial.print("SD attached...");
-			if (!setupSD(spi)) {
+			if (!sd_init(SD)) {
 				xTaskNotifyGive(sd_hdl);
 				delay(1000);
 			}
@@ -575,7 +577,7 @@ void SDwrite(void* param) {
 			continue;
 		}
 		delay(50);
-		appendFile(SD, sd_filename().c_str(), recordLine);
+		append_file(SD, sd_filename().c_str(), recordLine);
 		Serial.println();
 
 		delete logger;
