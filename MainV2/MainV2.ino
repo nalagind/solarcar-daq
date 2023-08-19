@@ -89,7 +89,7 @@ void cliTask(void *pvParameters) {
 }
 
 void setup() {
-	
+	pinMode(PA10, OUTPUT);
 	// Set up the SD card
     SPIClass spi;
     setupSD(spi);
