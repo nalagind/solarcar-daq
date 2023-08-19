@@ -2,6 +2,9 @@
 #include <RadioLib.h>
 
 // Define the LoRa module and other parameters
+HardwareSerial Serial1(PC5, PB10);
+SPIClass SPI_3(PC12, PC11, PC10);
+SPISettings spiSettings(14000000, MSBFIRST, SPI_MODE0);
 SX1262 radio = new Module(PB3, PA15, PB4, PD2, SPI_3);
 const int LoRaDataRate = 20000;  // 20 kbps
 const int LoRaTransmissionInterval = 5000;  // Transmit every 5 seconds
@@ -31,13 +34,14 @@ void deltaEncode(String* data, int length, int* compressedData) {
 void setup() {
     Serial.begin(115200);
 
-    // Initialize LoRa module
-    radio.begin();
-    radio.setFrequency(915e6);
-    radio.setSpreadingFactor(7);
-    radio.setSignalBandwidth(125000);
-    radio.setCodingRate4(5);
-    radio.setTxPower(14);
+  int state = radio.begin();
+  radio.setRfSwitchPins(PA1, PA0);
+  radio.setFrequency(915.0);
+  radio.setBandwidth(500);
+  radio.setSpreadingFactor(6);
+  radio.setCodingRate(5);
+  radio.setCRC(0);
+  state = radio.setOutputPower(22);
 }
 
 void loop() {
