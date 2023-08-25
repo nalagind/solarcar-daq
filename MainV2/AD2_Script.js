@@ -51,7 +51,7 @@ Protocol.CAN.Configure({
     rate: 250000 // Set the communication rate to 250 kHz
 });
 
-// Simulate messages with arbitration and receive functionality
+/* // Simulate messages with arbitration and receive functionality
 function simulateAndReceive() {
     while (true) {
         // Send a message from the Signal List
@@ -82,15 +82,7 @@ function simulateAndReceive() {
     }
 }
 
-// Generate random data within specified range
-function generateRandomData() {
-    var data = [];
-    for (var i = 0; i < 8; i++) {
-        var randomValue = Math.floor(Math.random() * 256); // Random value between 0 and 255
-        data.push(randomValue);
-    }
-    return data;
-}
+
 
 // Get the requested frames from data
 function getRequestedFramesFromData(data) {
@@ -131,4 +123,28 @@ function sendFrameDataForWheelAndFrame(requestWheel, frameNumber) {
 
 
 // Simulate arbitration and receive in parallel
-ParallelThread(simulateAndReceive);
+ParallelThread(simulateAndReceive);*/
+
+// Generate random data within specified range
+function generateRandomData() {
+    var data = [];
+    for (var i = 0; i < 8; i++) {
+        var randomValue = Math.floor(Math.random() * 256); // Random value between 0 and 255
+        data.push(randomValue);
+    }
+    return data;
+}
+
+/ Simulate sending messages for each signal
+function simulateSending() {
+    while (true) {
+        for (var signal of SignalList) {
+            var randomData = generateRandomData(); // Generate random data
+            Protocol.CAN.Send(signal.id, false, 0, false, randomData.length, randomData);
+            wait(WAIT_TIME_MS);
+        }
+    }
+}
+
+// Start simulating sending messages
+simulateSending();
