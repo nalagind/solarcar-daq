@@ -54,12 +54,12 @@ void setup() {
 
     // Initialize CLI and CLI task
 	  cli = setupCLI(); 
-    xTaskCreate(cliTask, "CLITask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &cliTaskHandle);
+    xTaskCreate(cliTask, "CLITask", configMINIMAL_STACK_SIZE + 200, NULL, 4, &cliTaskHandle);
     // Create tasks based on the selected mode
     if (currentMode == SOLAR_CAR_MODE) {
     // Initialize CAN Read and CAN Send tasks
     xTaskCreate(canReadTask, "CANReadTask", configMINIMAL_STACK_SIZE + 200, NULL, 3, &canReadTaskHandle);
-    xTaskCreate(canSendTask, "CANSendTask", configMINIMAL_STACK_SIZE + 200, NULL, 4, &canSendTaskHandle);
+    xTaskCreate(canSendTask, "CANSendTask", configMINIMAL_STACK_SIZE + 200, NULL, 3, &canSendTaskHandle);
 
     // Initialize SD Write task
     xTaskCreate(sdWriteTask, "SDWriteTask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &sdWriteTaskHandle);
@@ -70,7 +70,7 @@ void setup() {
     } else if (currentMode == TRACE_CAR_MODE) {
     // Initialize SD Write task
     xTaskCreate(sdWriteTask, "SDWriteTask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &sdWriteTaskHandle);
-    xTaskCreate(loRaReceiveTask, "LoRaReceiveTask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &loRaReceiveTaskHandle);
+    xTaskCreate(loRaReceiveTask, "LoRaReceiveTask", configMINIMAL_STACK_SIZE + 200, NULL, 2, &loRaReceiveTaskHandle);
     }
     // Start the scheduler
     vTaskStartScheduler();
