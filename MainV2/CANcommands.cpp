@@ -2,8 +2,11 @@
 
 #include "CANCommands.h"
 
+/* Get the rtc object */
+STM32RTC& rtc = STM32RTC::getInstance();
+
 void initCAN() {
-	initializeMessageList();
+	  initializeMessageNameMap();
     Can.begin();
     Can.setBaudRate(250000);  // Set the desired baud rate
     //Can.setBaudRate(500000);  //500KBPS
@@ -20,31 +23,25 @@ void CAN_SendMessage(uint32_t id, uint8_t len, uint8_t* data) {
 }
 
 void CAN_Read() {
-    while (Can.available()) {
-        CAN_message_t msg;
-        Can.read(msg);
-        processReceivedMessage(msg);
-    }
+    
 }
-
-string processReceivedMessage(const CAN_message_t& msg) {
+String processReceivedMessage(const CAN_message_t& msg) {
   
     String output = "";
-    DateTime now = rtc.now();
 
     // Prepare the timestamp
     output += "Timestamp: ";
-    output += now.year();
+    output += rtc.getYear();
     output += "/";
-    output += now.month();
+    output += rtc.getMonth();
     output += "/";
-    output += now.day();
+    output += rtc.getDay();
     output += " ";
-    output += now.hour();
+    output += rtc.getHours();
     output += ":";
-    output += now.minute();
+    output += rtc.getMinutes();
     output += ":";
-    output += now.second();
+    output += rtc.getSeconds();
     output += " | ";
 
     // Prepare message details

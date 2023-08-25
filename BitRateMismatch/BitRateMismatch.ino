@@ -16,8 +16,8 @@ String batchedData[BatchSize];
 int batchedCounter = 0;
 
 // Delta compression function
-void deltaEncode(String* data, int length, int* compressedData) {
-    compressedData[0] = data[0];  // First string remains unchanged
+void deltaEncode(String* data, int length, String* compressedData) {
+ compressedData[0] = data[0];  // First string remains unchanged
     for (int i = 1; i < length; i++) {
         String diff;
         for (int j = 0; j < data[i].length(); j++) {
@@ -58,16 +58,41 @@ void loop() {
 
         if (batchedCounter == BatchSize) {
             // Delta encode the data
-            int compressedData[BatchSize];
+            String compressedData[BatchSize];
             deltaEncode(batchedData, BatchSize, compressedData);
 
             // Transmit compressed data over LoRa
-            radio.transmit((byte*)compressedData, BatchSize * sizeof(int));
+          for (int i = 0; i < BatchSize; i++) {
+              radio.transmit(compressedData[i]);
+              delay(100);  // Delay between transmissions
+          }
 
             // Reset batched data counter
             batchedCounter = 0;
         }
 
         lastTransmissionTime = currentTime;
+    }
+}
+void deltaDecode(String* compressedData, int length, String* decodedData) {
+    decodedData[0] = compressedData[0];  // First value remains unchanged
+    for (int i = 1; i < length; i++) {
+        String decodedValue = decodedData[i - 1];
+        String deltaValues = compressedData[i];
+        int start = 0;
+        int end = deltaValues.indexOf(",");
+        
+        for (int j = 0; j < decodedValue.length(); j++) {
+            int delta = deltaValues.substring(start, end).toInt();
+            decodedValue[j] = char(decodedValue[j] + delta);
+            
+            start = end + 1;
+            end = deltaValues.indexOf(",", start);
+            if (end == -1) {
+                end = deltaValues.length();
+            }
+        }
+        
+        decodedData[i] = decodedValue;
     }
 }

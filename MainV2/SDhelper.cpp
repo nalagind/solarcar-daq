@@ -1,8 +1,8 @@
 #include "SDHelper.h"
 
 void setupSD(SPIClass &spi) {
-    SPI.begin(PA5, PA6, PA7, PC4);
-    if (!SD.begin(PB0, spi)) {
+    SPI.begin(PA6,PA7,PC4,PC5);
+    if (!SD.begin(PB1, spi)) {
         Serial.println("no SD card attached");
         while (true);
     } else {
@@ -10,10 +10,10 @@ void setupSD(SPIClass &spi) {
     }
 }
 
-void writeFile(fs::FS &fs, const char *path, const char *message) {
+void writeFile(const char *path, const char *message) {
     Serial.printf("Writing file: %s\n", path);
 
-    File file = fs.open(path, FILE_WRITE);
+    File file =SD.open(path, FILE_WRITE);
     if (!file) {
         Serial.println("Failed to open file for writing");
         return;
@@ -26,19 +26,19 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
     file.close();
 }
 
-void createDir(fs::FS &fs, const char *path) {
+void createDir(const char *path) {
     Serial.printf("Creating Dir: %s\n", path);
-    if (fs.mkdir(path)) {
+    if (SD.mkdir(path)) {
         Serial.println("Dir created");
     } else {
         Serial.println("mkdir failed");
     }
 }
 
-void appendFile(fs::FS &fs, const char *path, const char *message) {
+void appendFile(const char *path, const char *message) {
     Serial.printf("Appending to file: %s\n", path);
 
-    File file = fs.open(path, FILE_APPEND);
+    File file = SD.open(path, FILE_APPEND);
     if (!file) {
         Serial.println("Failed to open file for appending");
         return;
@@ -51,10 +51,10 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
     file.close();
 }
 
-void readFile(fs::FS &fs, const char *path) {
+void readFile(const char *path) {
     Serial.printf("Reading file: %s\n", path);
 
-    File file = fs.open(path);
+    File file = SD.open(path);
     if (!file) {
         Serial.println("Failed to open file for reading");
         return;

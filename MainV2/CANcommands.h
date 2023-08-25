@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <STM32_CAN.h>
 #include "MessageList.h"
+#include <STM32RTC.h>
 
 extern STM32_CAN Can;
 extern CAN_message_t CAN_TX_msg;
@@ -13,6 +14,6 @@ extern CAN_message_t CAN_TX_msg;
 void initCAN();
 void CAN_SendMessage(uint32_t id, uint8_t len, uint8_t* data);
 void CAN_Read();
-void processReceivedMessage(const CAN_message_t& msg);
+String processReceivedMessage(const CAN_message_t& msg);
 
 #endif
