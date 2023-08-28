@@ -93,7 +93,7 @@ void canReadTask(void *pvParameters) {
             String output = processReceivedMessage(msg);
             digitalWrite(PA9, HIGH);
             // Add processed message to batch
-            batchedData[batchCounter] = output;
+            batchedData[batchCounter] += output;
             batchCounter++;
 
             if (batchCounter >= BATCH_SIZE) {
