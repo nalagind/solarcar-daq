@@ -29,7 +29,7 @@ String processReceivedMessage(const CAN_message_t& msg) {
   
     String output = "";
 
-    // Prepare the timestamp
+   /* // Prepare the timestamp
     output += "Timestamp: ";
     output += rtc.getYear();
     output += "/";
@@ -43,7 +43,7 @@ String processReceivedMessage(const CAN_message_t& msg) {
     output += ":";
     output += rtc.getSeconds();
     output += " | ";
-
+*/
     // Prepare message details
     output += "\nChannel:";
     output += msg.bus;

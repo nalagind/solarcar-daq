@@ -2,7 +2,6 @@
 #define SD_HELPER_H
 
 
-#include <Seeed_Arduino_FS.h>
 #include "SD.h"
 #include <SPI.h>
 
