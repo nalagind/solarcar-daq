@@ -29,6 +29,8 @@ TaskHandle_t loRaReceiveTaskHandle;
 // Define event bits
 const EventBits_t CLI_EVENT_BIT = (1 << 0);
 
+String batchedData[BATCH_SIZE];
+int batchCounter = 0;
 
 
 void setup() {
@@ -99,8 +101,11 @@ void canReadTask(void *pvParameters) {
             if (batchCounter >= BATCH_SIZE) {
                 // Batch is full, send to Queue1
                 xQueueSend(Queue1, batchedData, portMAX_DELAY);
-
                 // Reset batch
+                // Reset batch
+                for (int i = 0; i < BATCH_SIZE; i++) {
+                    batchedData[i] = ""; // Reset to empty string
+                }
                 batchCounter = 0;
             }
         }
