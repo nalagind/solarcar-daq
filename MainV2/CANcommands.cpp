@@ -6,7 +6,11 @@
 STM32RTC& rtc = STM32RTC::getInstance();
 
 void initCAN() {
-	  initializeMessageNameMap();
+
+    // By default the LSI is selected as source
+    rtc.begin(); // initialize RTC 24H format
+	  
+    initializeMessageNameMap();
     Can.begin();
     Can.setBaudRate(250000);  // Set the desired baud rate
     //Can.setBaudRate(500000);  //500KBPS
@@ -25,12 +29,11 @@ void CAN_SendMessage(uint32_t id, uint8_t len, uint8_t* data) {
 void CAN_Read() {
     
 }
-String processReceivedMessage(const CAN_message_t& msg) {
-  
-    String output = "";
 
-   /* // Prepare the timestamp
-    output += "Timestamp: ";
+String processReceivedMessage(const CAN_message_t& msg) {
+  String output = "Timestamp: ";
+
+   // Prepare the timestamp
     output += rtc.getYear();
     output += "/";
     output += rtc.getMonth();
@@ -43,7 +46,7 @@ String processReceivedMessage(const CAN_message_t& msg) {
     output += ":";
     output += rtc.getSeconds();
     output += " | ";
-*/
+
     // Prepare message details
     output += "\nChannel:";
     output += msg.bus;
