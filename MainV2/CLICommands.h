@@ -12,6 +12,7 @@ enum OperatingMode {
     SOLAR_CAR_MODE,
     TRACE_CAR_MODE
 };
+
 void errorCallback(cmd_error* e) {
     CommandError cmdError(e);
 
@@ -28,7 +29,7 @@ void testCmdCallback(cmd* c) {
     Command cmd(c);
     if (currentMode == SOLAR_CAR_MODE) {
 
-      if (cmd.getArg("sd_write").isSet()) {
+    if (cmd.getArg("sd_write").isSet()) {
       writeFile("/test.txt", "Testing SD write functionality.\n");
       Serial.println("Test message written to SD card.");
     }
@@ -92,10 +93,10 @@ void setModeCmdCallback(cmd* c) {
     Command cmd(c);
     if (cmd.getArg("solar_car").isSet()) {
         currentMode = SOLAR_CAR_MODE;
-        setup();
+        
     } else if (cmd.getArg("trace_car").isSet()) {
         currentMode = TRACE_CAR_MODE;
-        setup();
+        
     }
     Serial.print("Switched to ");
     Serial.println(currentMode == SOLAR_CAR_MODE ? "solar car mode" : "trace car mode");

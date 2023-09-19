@@ -1,7 +1,9 @@
 #include "SDHelper.h"
 
 void setupSD(SPIClass &spi) {
-    SPI.begin(PA6,PA7,PC4,PC5);
+
+    SPIClass& SPI_2(PA6,PA7,PC4,PC5);
+    SPI_2.begin();
     if (!SD.begin(PB1, spi)) {
         Serial.println("no SD card attached");
         while (true);

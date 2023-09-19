@@ -6,7 +6,7 @@
 #include <Arduino.h>
 #include <STM32_CAN.h>
 #include "MessageList.h"
-#include <STM32RTC.h>
+//#include <STM32RTC.h>
 
 extern STM32_CAN Can;
 extern CAN_message_t CAN_TX_msg;

@@ -57,6 +57,7 @@ void setup() {
     // Initialize CLI and CLI task
 	  cli = setupCLI(); 
     xTaskCreate(cliTask, "CLITask", configMINIMAL_STACK_SIZE + 200, NULL, 4, &cliTaskHandle);
+    
     // Create tasks based on the selected mode
     if (currentMode == SOLAR_CAR_MODE) {
     // Initialize CAN Read and CAN Send tasks
@@ -146,9 +147,9 @@ void cliTask(void *pvParameters) {
       Serial.println(input);
       cli.parse(input);
       /*
-              if (input == "reset-can-read") {
+              if (input == "Solar_Car") {
                   xEventGroupSetBits(eventGroup, (1 << 0)); // Set bit 0 to reset CAN read task
-              } else if (input == "reset-sd-write") {
+              } else if (input == "Trace_Car") {
                   xEventGroupSetBits(eventGroup, (1 << 1)); // Set bit 1 to reset SD write task
               }**/
               
@@ -162,13 +163,13 @@ void loRaTransmitTask(void *pvParameters) {
         if (xQueueReceive(Queue1, batchedData, pdMS_TO_TICKS(1000)) == pdTRUE) {
           /*
             // Delta encode the batched data
-            int compressedData[BATCH_SIZE];
-            deltaEncode(batchedData, BATCH_SIZE, compressedData);
+            /*int compressedData[BATCH_SIZE];
+            deltaEncode(batchedData, BATCH_SIZE, compressedData);*/
 
             // Transmit compressed data via LoRa
             String compressedDataStr;
             for (int i = 0; i < BATCH_SIZE; i++) {
-                compressedDataStr += String(compressedData[i]) + ",";
+                compressedDataStr += String(batchedData[i]) + ",";
             }
             LoRaTransmit(compressedDataStr);*/
             for (int i = 0; i < BATCH_SIZE; i++) {
