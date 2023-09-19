@@ -95,7 +95,7 @@ void canReadTask(void *pvParameters) {
             String output = processReceivedMessage(msg);
             digitalWrite(PA9, HIGH);
             // Add processed message to batch
-            batchedData[batchCounter] += output;
+            batchedData[batchCounter] = output;
             batchCounter++;
 
             if (batchCounter >= BATCH_SIZE) {
@@ -160,6 +160,7 @@ void loRaTransmitTask(void *pvParameters) {
     while (true) {
         String batchedData[BATCH_SIZE];
         if (xQueueReceive(Queue1, batchedData, pdMS_TO_TICKS(1000)) == pdTRUE) {
+          /*
             // Delta encode the batched data
             int compressedData[BATCH_SIZE];
             deltaEncode(batchedData, BATCH_SIZE, compressedData);
@@ -169,7 +170,12 @@ void loRaTransmitTask(void *pvParameters) {
             for (int i = 0; i < BATCH_SIZE; i++) {
                 compressedDataStr += String(compressedData[i]) + ",";
             }
-            LoRaTransmit(compressedDataStr);
+            LoRaTransmit(compressedDataStr);*/
+            for (int i = 0; i < BATCH_SIZE; i++) {
+                LoRaTransmit(batchedData[i]);
+            }
+            
+
         }
         vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
     }
