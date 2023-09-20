@@ -1,5 +1,4 @@
-#ifndef CLICOMMANDS_H
-#define CLICOMMANDS_H
+
 #include <SimpleCLI.h>
 #include "CANCommands.h"
 #include "SDHelper.h" // Include the SDHelper header
@@ -131,4 +130,3 @@ SimpleCLI setupCLI() {
 }
 
 
-#endif
