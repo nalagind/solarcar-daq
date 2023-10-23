@@ -1,6 +1,7 @@
 // CANCommands.cpp
 
 #include "CANCommands.h"
+#include <STM32RTC.h>
 
 /* Get the rtc object */
 STM32RTC& rtc = STM32RTC::getInstance();

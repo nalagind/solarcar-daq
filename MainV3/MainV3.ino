@@ -1,5 +1,3 @@
-//Main
-#include <Arduino.h>
 #include <STM32FreeRTOS.h>
 #include "CLICommands.h"
 #include "CANCommands.h"
@@ -171,7 +169,7 @@ void loRaTransmitTask(void *pvParameters) {
             for (int i = 0; i < BATCH_SIZE; i++) {
                 compressedDataStr += String(batchedData[i]) + ",";
             }
-            LoRaTransmit(compressedDataStr);*/
+            LoRaTransmit(compressedDataStr);
             for (int i = 0; i < BATCH_SIZE; i++) {
                 LoRaTransmit(batchedData[i]);
             }

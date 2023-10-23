@@ -5,12 +5,13 @@
 
 extern SimpleCLI cli;
 extern Command sendRequestCommand;
-OperatingMode currentMode = SOLAR_CAR_MODE; // Default to solar car mode
 
 enum OperatingMode {
     SOLAR_CAR_MODE,
     TRACE_CAR_MODE
 };
+
+OperatingMode currentMode = SOLAR_CAR_MODE; // Default to solar car mode
 
 void errorCallback(cmd_error* e) {
     CommandError cmdError(e);
@@ -24,6 +25,7 @@ void errorCallback(cmd_error* e) {
         Serial.println("\"?");
     }
 }
+
 void testCmdCallback(cmd* c) {
     Command cmd(c);
     if (currentMode == SOLAR_CAR_MODE) {
@@ -54,8 +56,6 @@ void testCmdCallback(cmd* c) {
         // Handle trace car mode commands if needed
     }
 
-
-    }
 
 }
 
