@@ -1,14 +1,10 @@
-#ifndef SD_HELPER_H
-#define SD_HELPER_H
+#pragma once
 
-
-#include "SD.h"
+#include <SD.h>
 #include <SPI.h>
 
-void setupSD(SPIClass& spi);
-void writeFile(const char * path, const char * message);
+bool setupSD(uint32_t miso, uint32_t mosi, uint32_t sclk, uint32_t ssel, const char *path);
+bool writeFile(const char * path, const char * message);
 void createDir(const char * path);
 void appendFile(const char * path, const char * message);
 void readFile(const char * path);
-
-#endif // SD_HELPER_H

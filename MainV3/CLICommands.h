@@ -3,7 +3,6 @@
 #include "CANCommands.h"
 #include "SDHelper.h" // Include the SDHelper header
 
-extern SimpleCLI cli;
 extern Command sendRequestCommand;
 
 enum OperatingMode {
@@ -28,15 +27,16 @@ void errorCallback(cmd_error* e) {
 
 void testCmdCallback(cmd* c) {
     Command cmd(c);
+    CAN_message_t CAN_TX_msg;
     if (currentMode == SOLAR_CAR_MODE) {
 
     if (cmd.getArg("sd_write").isSet()) {
-      writeFile("/test.txt", "Testing SD write functionality.\n");
+      // writeFile("/test.txt", "Testing SD write functionality.\n");
       Serial.println("Test message written to SD card.");
     }
     if (cmd.getArg("sd_read").isSet()) {
       Serial.println("Reading content from test.txt on SD card:");
-      readFile("/test.txt");
+      // readFile("/test.txt");
     }
     if (cmd.getArg("CAN_write").isSet()) {
       CAN_TX_msg.id = (0x1A5);

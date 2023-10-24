@@ -19,12 +19,12 @@ void initCAN() {
 }
 
 void CAN_SendMessage(uint32_t id, uint8_t len, uint8_t* data) {
-    CAN_TX_msg.id = id;
-    CAN_TX_msg.len = len;
-    for (uint8_t i = 0; i < len; i++) {
-        CAN_TX_msg.buf[i] = data[i];
-    }
-    Can.write(CAN_TX_msg);
+//     CAN_TX_msg.id = id;
+//     CAN_TX_msg.len = len;
+//     for (uint8_t i = 0; i < len; i++) {
+//         CAN_TX_msg.buf[i] = data[i];
+//     }
+//     Can.write(CAN_TX_msg);
 }
 
 void CAN_Read() {

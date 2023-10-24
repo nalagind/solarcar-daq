@@ -13,7 +13,7 @@ SX1262 radio = new Module(PB3, PA15, PB4, PD2, SPI_3);
 
 void setupLoRa() {
   // initialize SX1262 with default settings
-  Serial1.print(F("[SX1262] Initializing ... "));
+  Serial.print(F("[SX1262] Initializing ... "));
   int state = radio.begin();
   radio.setRfSwitchPins(PA1, PA0);
   radio.setFrequency(915.0);
@@ -23,16 +23,16 @@ void setupLoRa() {
   radio.setCRC(0);
   state = radio.setOutputPower(22);
   if (state == RADIOLIB_ERR_NONE) {
-    Serial1.println(F("success!"));
+    Serial.println(F("success!"));
   } else {
-    Serial1.print(F("failed, code "));
-    Serial1.println(state);
+    Serial.print(F("failed, code "));
+    Serial.println(state);
     while (true);
   }
 }
 
 void LoRaTransmit(String str) {
-  Serial1.print(F("[SX1262] Transmitting packet ... "));
+  Serial.print(F("[SX1262] Transmitting packet ... "));
   digitalWrite(PA10, LOW);
 
   // you can transmit C-string or Arduino string up to
@@ -47,25 +47,25 @@ void LoRaTransmit(String str) {
 
   if (state == RADIOLIB_ERR_NONE) {
     // the packet was successfully transmitted
-    Serial1.println(F("success!"));
+    Serial.println(F("success!"));
 
     // print measured data rate
-    Serial1.print(F("[SX1262] Datarate:\t"));
-    Serial1.print(radio.getDataRate()/1000);
-    Serial1.println(F(" kbps"));
+    Serial.print(F("[SX1262] Datarate:\t"));
+    Serial.print(radio.getDataRate()/1000);
+    Serial.println(F(" kbps"));
 
   } else if (state == RADIOLIB_ERR_PACKET_TOO_LONG) {
     // the supplied packet was longer than 256 bytes
-    Serial1.println(F("too long!"));
+    Serial.println(F("too long!"));
 
   } else if (state == RADIOLIB_ERR_TX_TIMEOUT) {
     // timeout occured while transmitting packet
-    Serial1.println(F("timeout!"));
+    Serial.println(F("timeout!"));
 
   } else {
     // some other error occurred
-    Serial1.print(F("failed, code "));
-    Serial1.println(state);
+    Serial.print(F("failed, code "));
+    Serial.println(state);
 
   }
 
@@ -106,40 +106,40 @@ String LoRaReceive() {
 
   //   if (state == RADIOLIB_ERR_NONE) {
   //     // packet was successfully received
-  //     Serial1.println(F("[SX1262] Received packet!"));
+  //     Serial.println(F("[SX1262] Received packet!"));
 	//   String decodedData = decodeData(str)
   //     // print data of the packet
-  //     Serial1.print(F("[SX1262] Data:\t\t"));
-  //     Serial1.println(decodedData);
+  //     Serial.print(F("[SX1262] Data:\t\t"));
+  //     Serial.println(decodedData);
 	// 	output += decodedData + "\n";
   //     // print RSSI (Received Signal Strength Indicator)
-  //     Serial1.print(F("[SX1262] RSSI:\t\t"));
-  //     Serial1.print(radio.getRSSI());
-  //     Serial1.println(F(" dBm"));
+  //     Serial.print(F("[SX1262] RSSI:\t\t"));
+  //     Serial.print(radio.getRSSI());
+  //     Serial.println(F(" dBm"));
 	// output += radio.getRSSI() + " dBm" + "\n";
 	
   //     // print SNR (Signal-to-Noise Ratio)
-  //     Serial1.print(F("[SX1262] SNR:\t\t"));
-  //     Serial1.print(radio.getSNR());
-  //     Serial1.println(F(" dB"));
+  //     Serial.print(F("[SX1262] SNR:\t\t"));
+  //     Serial.print(radio.getSNR());
+  //     Serial.println(F(" dB"));
 	  
 	//   output += radio.getSNR() + " dB" + "\n";
 
   //     // print frequency error
-  //     Serial1.print(F("[SX1262] Frequency error:\t"));
-  //     Serial1.print(radio.getFrequencyError());
-  //     Serial1.println(F(" Hz"));
+  //     Serial.print(F("[SX1262] Frequency error:\t"));
+  //     Serial.print(radio.getFrequencyError());
+  //     Serial.println(F(" Hz"));
 	  
 	//   output += radio.getFrequencyError() + " Hz" + "\n";
 
   //   } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
   //     // packet was received, but is malformed
-  //     Serial1.println(F("CRC error!"));
+  //     Serial.println(F("CRC error!"));
 
   //   } else {
   //     // some other error occurred
-  //     Serial1.print(F("failed, code "));
-  //     Serial1.println(state);
+  //     Serial.print(F("failed, code "));
+  //     Serial.println(state);
 
   //   }
   //   digitalWrite(PA9, HIGH);
