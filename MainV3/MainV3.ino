@@ -1,7 +1,7 @@
 #include <STM32FreeRTOS.h>
 #include "CLICommands.h"
 #include "CANCommands.h"
-// #include "SDhelper.h"
+#include "SDhelper.h"
 #include "LoRaCommands.h"
 #define BATCH_SIZE 5
 
@@ -51,27 +51,27 @@ void setup() {
 
 
     // Initialize CLI and CLI task
-    xTaskCreate(cliTask, "CLITask", configMINIMAL_STACK_SIZE + 200, NULL, 4, &cliTaskHandle);
+    //xTaskCreate(cliTask, "CLITask", configMINIMAL_STACK_SIZE + 200, NULL, 4, &cliTaskHandle);
     
     // Create tasks based on the selected mode
     if (currentMode == SOLAR_CAR_MODE) {
     // Initialize CAN Read and CAN Send tasks
-    xTaskCreate(canReadTask, "CANReadTask", configMINIMAL_STACK_SIZE + 200, NULL, 3, &canReadTaskHandle);
-    xTaskCreate(canSendTask, "CANSendTask", configMINIMAL_STACK_SIZE + 200, NULL, 3, &canSendTaskHandle);
+    //xTaskCreate(canReadTask, "CANReadTask", configMINIMAL_STACK_SIZE + 200, NULL, 3, &canReadTaskHandle);
+    //xTaskCreate(canSendTask, "CANSendTask", configMINIMAL_STACK_SIZE + 200, NULL, 3, &canSendTaskHandle);
 
     // Initialize SD Write task
-    // xTaskCreate(sdWriteTask, "SDWriteTask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &sdWriteTaskHandle);
+    xTaskCreate(sdWriteTask, "SDWriteTask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &sdWriteTaskHandle);
 
     // Create LoRa Transmit and Receive tasks
-    xTaskCreate(loRaTransmitTask, "LoRaTransmitTask", configMINIMAL_STACK_SIZE + 200, NULL, 2, &loRaTransmitTaskHandle);
-
-    } else if (currentMode == TRACE_CAR_MODE) {
+    //xTaskCreate(loRaTransmitTask, "LoRaTransmitTask", configMINIMAL_STACK_SIZE + 200, NULL, 2, &loRaTransmitTaskHandle);
+    }
+    //} else if (currentMode == TRACE_CAR_MODE) {
     // Initialize SD Write task
     // xTaskCreate(sdWriteTask, "SDWriteTask", configMINIMAL_STACK_SIZE + 200, NULL, 1, &sdWriteTaskHandle);
-    xTaskCreate(loRaReceiveTask, "LoRaReceiveTask", configMINIMAL_STACK_SIZE + 200, NULL, 2, &loRaReceiveTaskHandle);
-    }
+    //xTaskCreate(loRaReceiveTask, "LoRaReceiveTask", configMINIMAL_STACK_SIZE + 200, NULL, 2, &loRaReceiveTaskHandle);
+    //}
     // Start the scheduler
-    vTaskStartScheduler();
+  vTaskStartScheduler();
 	Serial.println("Boom!");
 	digitalWrite(PA9, HIGH);
 }
@@ -80,14 +80,14 @@ void loop() {
     // intentionally left empty
 }
 
-
+/*
 // CAN Read Task
 void canReadTask(void *pvParameters) {
     while (true) {
         CAN_message_t msg;
         if (Can.read(msg)) {
             digitalWrite(PA9, LOW);
-            // Process the received message
+            // Process the received message 
             String output = processReceivedMessage(msg);
             digitalWrite(PA9, HIGH);
             // Add processed message to batch
@@ -109,7 +109,8 @@ void canReadTask(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-
+*/
+/*
 // CAN Send Task
 void canSendTask(void *pvParameters) {
     while (true) {
@@ -117,20 +118,35 @@ void canSendTask(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(1000)); // Example delay
     }
 }
+*/
 
 // SD Write Task
-// void sdWriteTask(void *pvParameters) {
-//   String dataToWrite;
-//     while (true) {
-//         if (xQueueReceive(Queue1, &dataToWrite, portMAX_DELAY) == pdTRUE) {
-//             // Write data to SD card
-//             appendFile("/data.txt", dataToWrite.c_str());
-//         }
-//         vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
-//     }
-// }
+void sdWriteTask(void *pvParameters) {
+    String dataToWrite;
+    if (!sd_init(PC4, PA6, PA7, PA5, "data.txt")) {
+        Serial.println("SD initialization or file writing failed");
+        while (1) {} // Hang here to indicate failure
+    }
+
+    /*
+    while (true) { //This is here to see if it writes to a file
+      writeFile("data.txt", "hello world");
+    }
+    */
+
+    while (true) {
+        if (xQueueReceive(Queue1, &dataToWrite, portMAX_DELAY) == pdTRUE) {
+            if (!writeFile("data.txt", "hello world 4:14")) {
+                Serial.println("Writing to file failed");
+            }
+            Serial.println("write executed");
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
+    }
+}
 
 // CLI Task
+/*
 void cliTask(void *pvParameters) {
 	SimpleCLI cli = setupCLI();
     while (true) {
@@ -147,12 +163,14 @@ void cliTask(void *pvParameters) {
                   xEventGroupSetBits(eventGroup, (1 << 0)); // Set bit 0 to reset CAN read task
               } else if (input == "Trace_Car") {
                   xEventGroupSetBits(eventGroup, (1 << 1)); // Set bit 1 to reset SD write task
-              }**/
+              }*
               
     }
       vTaskDelay(pdMS_TO_TICKS(10));
     }
+*/
 
+/*
 void loRaTransmitTask(void *pvParameters) {
     while (true) {
         String batchedData[BATCH_SIZE];
@@ -160,7 +178,7 @@ void loRaTransmitTask(void *pvParameters) {
           /*
             // Delta encode the batched data
             /*int compressedData[BATCH_SIZE];
-            deltaEncode(batchedData, BATCH_SIZE, compressedData);*/
+            deltaEncode(batchedData, BATCH_SIZE, compressedData);
 
             // Transmit compressed data via LoRa
             String compressedDataStr;
@@ -171,12 +189,15 @@ void loRaTransmitTask(void *pvParameters) {
             for (int i = 0; i < BATCH_SIZE; i++) {
                 LoRaTransmit(batchedData[i]);
             }
-            
+
 
         }
         vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
     }
 }
+*/
+
+/*
 void loRaReceiveTask(void *pvParameters) {
     while (true) {
         char buf[200];
@@ -186,4 +207,5 @@ void loRaReceiveTask(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
     }
 }
+*/
 

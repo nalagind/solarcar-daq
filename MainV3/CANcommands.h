@@ -1,3 +1,5 @@
+#include <STM32_CAN.h>
+
 // CANCommands.h
 
 #ifndef CAN_COMMANDS_H
