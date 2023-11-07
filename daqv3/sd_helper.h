@@ -21,6 +21,24 @@ bool writeFile(const char *path, const char *message) {
   return true;
 }
 
+void appendFile(const char *path, const char *message) {
+    Serial.printf("Appending to file: %s\n", path);
+
+    file = SD.open(path, O_RDWR | O_CREAT | O_AT_END);
+    if (!file) {
+        Serial.println("Failed to open file for appending");
+        return;
+    }
+
+    if (file.print(message)) {
+        Serial.println("Message appended");
+    } else {
+        Serial.println("Append failed");
+    }
+
+    file.close();
+}
+
 bool sd_init(uint32_t chipSelectPin, uint32_t miso, uint32_t mosi, uint32_t sclk, const char *path) {
   //need to change SPI pins for timeconsumer board
   SPI.setMISO(miso); //PA6

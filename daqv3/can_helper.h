@@ -1,4 +1,57 @@
-// extern STM32_CAN can;
+#include "STM32_CAN.h"
+
+#if !defined(HAL_CAN_MODULE_ENABLED)
+#define HAL_CAN_MODULE_ENABLED
+#endif
+
+String processReceivedMessage(const CAN_message_t& msg) {
+  String output = "Timestamp: ";
+
+   // Prepare the timestamp
+    output += rtc.getYear();
+    output += "/";
+    output += rtc.getMonth();
+    output += "/";
+    output += rtc.getDay();
+    output += " ";
+    output += rtc.getHours();
+    output += ":";
+    output += rtc.getMinutes();
+    output += ":";
+    output += rtc.getSeconds();
+    output += " | ";
+
+    // Prepare message details
+    output += "\nChannel:";
+    output += msg.bus;
+    
+    // Print the received message's name if it's in the map
+    if (messageNameMap.count(msg.id)) {
+        output += "\nMessage Name: ";
+        output += messageNameMap[msg.id];
+    }
+    if (msg.flags.extended == false) {
+        output += " \nStandard ID: ";
+    } else {
+        output += " \nExtended ID: ";
+    }
+    output += msg.id;
+    output += "\nDLC: ";
+    output += msg.len;
+
+    if (msg.flags.remote == false) {
+        output += "\nbuf: ";
+        for (int i = 0; i < msg.len; i++) {
+            output += "0x";
+            output += msg.buf[i];
+            if (i != (msg.len - 1)) output += " ";
+        }
+    } else {
+        output += "\nData: REMOTE REQUEST FRAME";
+    }
+	
+	return output;
+}
 
 // std::map<uint32_t, String> messageNameMap;
 
