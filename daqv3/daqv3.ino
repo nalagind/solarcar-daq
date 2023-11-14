@@ -36,18 +36,24 @@ void setup() {
   cli.parse("config -ls");
 
   uint16_t countdown = millis();
-  while (millis() - countdown < 4000) {
-    while (!Serial.available()) {};
-    
-    String input = Serial.readStringUntil('\n');
-    Serial.print("% ");
-    input.trim();
-    Serial.println(input);
-    cli.parse(input);
-    countdown = millis();
+  Serial.println("starting in");
+  while (millis() - countdown < 7000) {
+    if (Serial.available()) {
+      String input = Serial.readStringUntil('\n');
+      Serial.print("% ");
+      input.trim();
+      Serial.println(input);
+      cli.parse(input);
+      countdown = millis();
+    }
+
+    if ((millis() - countdown) % 1000 == 0) {
+      Serial.println(7 - (millis() - countdown) / 1000);
+      delay(1);
+    }
   }
   
-  Serial.println("ok");
+  Serial.println("started");
 }
 
 void loop() {
