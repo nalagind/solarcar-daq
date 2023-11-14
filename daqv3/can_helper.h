@@ -1,25 +1,7 @@
 #include "STM32_CAN.h"
-#include <STM32RTC.h>
-
-STM32RTC& rtc = STM32RTC::getInstance();
 
 String processReceivedMessage(const CAN_message_t& msg) {
-  String output = "Timestamp: ";
-
-  // timestamp
-  output += rtc.getYear();
-  output += "/";
-  output += rtc.getMonth();
-  output += "/";
-  output += rtc.getDay();
-  output += " ";
-  output += rtc.getHours();
-  output += ":";
-  output += rtc.getMinutes();
-  output += ":";
-  output += rtc.getSeconds();
-  output += ",";
-
+  String output = "";
   // source task name
   output += "can rx,";
 
@@ -34,15 +16,15 @@ String processReceivedMessage(const CAN_message_t& msg) {
   // }
 
   // can id
-  // if (msg.flags.extended == false) {
-  //     output += " \nStandard ID: ";
-  // } else {
-  //     output += " \nExtended ID: ";
-  // }
+  if (msg.flags.extended == false) {
+      output += " \nStandard ID: ";
+  } else {
+      output += " \nExtended ID: ";
+  }
   output += msg.id;
   output += ",";
-  // output += "\nDLC: ";
-  // output += msg.len;
+  output += "\nDLC: ";
+  output += msg.len;
 
   // can data
   if (msg.flags.remote == false) {
@@ -55,6 +37,7 @@ String processReceivedMessage(const CAN_message_t& msg) {
   } else {
       output += "\nData: REMOTE REQUEST FRAME";
   }
+  /*
   output += ",";
 
 	// can telemetry
@@ -70,6 +53,7 @@ String processReceivedMessage(const CAN_message_t& msg) {
 
   // info
   record += ",";
+  */
 
 	return output;
 }
