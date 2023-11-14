@@ -18,6 +18,7 @@ String can_record;
 int record_sn = 1;
 
 SimpleCLI cli = setupCLI();
+Preferences pref;
 
 void setup() {
   Serial.setRx(PC5);
@@ -26,18 +27,11 @@ void setup() {
 
   rtc.begin();
 
-  Can.begin();
-  Can.setBaudRate(500000);
-
-  lora_init();
-
-  sd_init(PC4, PA6, PA7, PA5, "data.txt");
-
   cli.parse("config -ls");
 
   uint16_t countdown = millis();
   Serial.println("starting in");
-  while (millis() - countdown < 7000) {
+  while (millis() - countdown < 10000) {
     if (Serial.available()) {
       String input = Serial.readStringUntil('\n');
       Serial.print("% ");
@@ -48,10 +42,17 @@ void setup() {
     }
 
     if ((millis() - countdown) % 1000 == 0) {
-      Serial.println(7 - (millis() - countdown) / 1000);
+      Serial.print(10 - (millis() - countdown) / 1000);
       delay(1);
     }
   }
+
+  Can.begin();
+  Can.setBaudRate(pref.can_rate * 1000);
+
+  sd_init(PC4, PA6, PA7, PA5, pref.filename);
+
+  lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC);
   
   Serial.println("started");
 }

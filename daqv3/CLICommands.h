@@ -1,3 +1,4 @@
+#pragma once
 
 #include <SimpleCLI.h>
 #include "RTC_helper.h"
@@ -29,8 +30,6 @@ enum OperatingMode {
     TRACE_CAR_MODE
 };
 
-extern OperatingMode currentMode;
-
 struct Preferences {
   uint16_t can_rate;
   float_t lora_frequency;
@@ -41,6 +40,9 @@ struct Preferences {
   bool file_overwrite;
   char filename[32];
 };
+
+extern OperatingMode currentMode;
+extern Preferences pref;
 
 void errorCallback(cmd_error* e) {
     CommandError cmdError(e);
@@ -69,7 +71,6 @@ void configCmdCallback(cmd* c) {
     HAL_NVIC_SystemReset();
   }
   
-  Preferences pref;
   EEPROM.get(0, pref);
 
   uint16_t can_rate = pref.can_rate;
@@ -265,5 +266,3 @@ SimpleCLI setupCLI() {
     
   return cli;
 }
-
-

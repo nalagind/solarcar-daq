@@ -1,3 +1,4 @@
+#pragma once
 #include "STM32_CAN.h"
 
 #include <STM32RTC.h>

@@ -2,15 +2,15 @@
 
 extern SX1262 radio;
 
-void lora_init() {
+void lora_init(float freq, uint16_t bw, uint8_t sf, uint8_t cr, uint8_t crc) {
   Serial.print(F("[SX1262] Initializing ... "));
   int state = radio.begin();
   radio.setRfSwitchPins(PA1, PA0);
-  radio.setFrequency(915.0);
-  radio.setBandwidth(500);
-  radio.setSpreadingFactor(6);
-  radio.setCodingRate(5);
-  radio.setCRC(0);
+  radio.setFrequency(freq);
+  radio.setBandwidth(bw);
+  radio.setSpreadingFactor(sf);
+  radio.setCodingRate(cr);
+  radio.setCRC(crc);
   state = radio.setOutputPower(22);
   if (state == RADIOLIB_ERR_NONE) {
     Serial.println("success!");
