@@ -1,5 +1,6 @@
 #include <STM32RTC.h>
 
+
 /* Get the rtc object */
 extern STM32RTC& rtc;
 
@@ -14,6 +15,9 @@ extern STM32RTC& rtc;
 // void RTC_Init(hours, minutes, seconds, day, day, month, year)
 // {
 //   rtc.begin(); // initialize RTC 24H format
+void RTC_Init(const byte hours, const byte minutes, const byte seconds, const byte day, const byte month, const byte year)
+{
+  rtc.begin(); // initialize RTC 24H format
 
 //   // Set the time
 //   rtc.setHours(hours);
@@ -26,8 +30,26 @@ extern STM32RTC& rtc;
 // 	Serial.printf("RTC READY!...");
 // }
 
-// void timeStamp()
-// {
-//   Serial.printf("%02d/%02d/%02d ", rtc.getDay(), rtc.getMonth(), rtc.getYear());
-//   // Serial.printf("%02d:%02d:%02d.%03d\n", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds(), rtc.getSubSeconds());
-// }
+void alarmMatch(void *data)
+{
+
+UNUSED(data);
+Serial.println("Alarm Match!");
+
+}
+
+void timeStamp()
+{
+  Serial.printf("%02d/%02d/%02d ", rtc.getDay(), rtc.getMonth(), rtc.getYear());
+
+  Serial.printf("%02d:%02d:%02d.%03d\n", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds(), rtc.getSubSeconds());
+
+}
+
+
+bool stopWatch(int sec){
+  rtc.attachSecondsInterrupt(alarmMatch);
+  rtc.setAlarmSeconds(sec);
+  rtc.enableAlarm(rtc.MATCH_DHHMMSS);
+}
+
