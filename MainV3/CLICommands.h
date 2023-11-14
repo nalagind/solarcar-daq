@@ -1,7 +1,5 @@
 
 #include <SimpleCLI.h>
-#include "CANCommands.h"
-#include "SDHelper.h" // Include the SDHelper header
 #include <EEPROM.h>
 
 #define ARG_DATETIME "date time,dt"
@@ -49,40 +47,6 @@ void errorCallback(cmd_error* e) {
         Serial.println("\"?");
     }
 }
-
-// void testCmdCallback(cmd* c) {
-//     Command cmd(c);
-//     CAN_message_t CAN_TX_msg;
-//     if (currentMode == SOLAR_CAR_MODE) {
-
-//     if (cmd.getArg("sd_write").isSet()) {
-//       // writeFile("/test.txt", "Testing SD write functionality.\n");
-//       Serial.println("Test message written to SD card.");
-//     }
-//     if (cmd.getArg("sd_read").isSet()) {
-//       Serial.println("Reading content from test.txt on SD card:");
-//       // readFile("/test.txt");
-//     }
-//     if (cmd.getArg("CAN_write").isSet()) {
-//       CAN_TX_msg.id = (0x1A5);
-//       CAN_TX_msg.len = 8;
-//       CAN_TX_msg.buf[0] =  0x03;
-//       CAN_TX_msg.buf[1] =  0x41;
-//       CAN_TX_msg.buf[2] =  0x11;
-//       CAN_TX_msg.buf[3] =  0x21;
-//       CAN_TX_msg.buf[4] =  0x00;
-//       CAN_TX_msg.buf[5] =  0x00;
-//       CAN_TX_msg.buf[6] =  0x00;
-//       CAN_TX_msg.buf[7] =  0x00;
-    
-//       Can.write(CAN_TX_msg);
-//     }
-//     } else if (currentMode == TRACE_CAR_MODE) {
-//         // Handle trace car mode commands if needed
-//     }
-
-
-// }
 
 void configCmdCallback(cmd* c) {
   Command cmd(c);
@@ -235,55 +199,26 @@ void configCmdCallback(cmd* c) {
 //   }
 // }
 
-// void setModeCmdCallback(cmd* c) {
-//     Command cmd(c);
-//     if (cmd.getArg("solar_car").isSet()) {
-//         currentMode = SOLAR_CAR_MODE;
-        
-//     } else if (cmd.getArg("trace_car").isSet()) {
-//         currentMode = TRACE_CAR_MODE;
-        
-//     }
-//     Serial.print("Switched to ");
-//     Serial.println(currentMode == SOLAR_CAR_MODE ? "solar car mode" : "trace car mode");
-// }
-
 
 SimpleCLI setupCLI() {
+  SimpleCLI cli;
+  cli.setOnError(errorCallback);
 
-    SimpleCLI cli;
-    cli.setOnError(errorCallback);
+  Command config;
+  config = cli.addCommand("config", configCmdCallback);
+  config.addArg(ARG_DATETIME, NOENTRY);
+  config.addArg(ARG_CAN_RATE, NOENTRY);
+  config.addArg(ARG_LORA_FREQ, NOENTRY);
+  config.addArg(ARG_LORA_BANDWIDTH, NOENTRY);
+  config.addArg(ARG_LORA_SF, NOENTRY);
+  config.addArg(ARG_LORA_CR, NOENTRY);
+  config.addArg(ARG_LORA_CRC, NOENTRY);
+  config.addFlagArg(ARG_FILE_OVERWRITE, NOENTRY);
+  config.addArg(ARG_FILENAME, NOENTRY);
 
-    Command config;
-    config = cli.addCommand("config", configCmdCallback);
-    config.addArg(ARG_DATETIME, NOENTRY);
-    config.addArg(ARG_CAN_RATE, NOENTRY);
-    config.addArg(ARG_LORA_FREQ, NOENTRY);
-    config.addArg(ARG_LORA_BANDWIDTH, NOENTRY);
-    config.addArg(ARG_LORA_SF, NOENTRY);
-    config.addArg(ARG_LORA_CR, NOENTRY);
-    config.addArg(ARG_LORA_CRC, NOENTRY);
-    config.addFlagArg(ARG_FILE_OVERWRITE, NOENTRY);
-    config.addArg(ARG_FILENAME, NOENTRY);
-
-    config.addFlagArg(ARG_LISTCONFIG);
-    config.addFlagArg("restart");
+  config.addFlagArg(ARG_LISTCONFIG);
+  config.addFlagArg("restart");
     
-    // Command test;
-    // test = cli.addCommand("test", testCmdCallback);
-    // test.addArg("sd_write","noentry");
-    // test.addArg("sd_read","noentry");
-    // test.addArg("CAN_write","noentry");
-
-    // Command send_request;
-    // send_request = cli.addCmd("send_request", send_request_CmdCallback);
-
-    // // Add mode command to switch between modes
-    // Command mode = cli.addCommand("mode", setModeCmdCallback);
-    // mode.addArg("solar_car", "noentry");
-    // mode.addArg("trace_car", "noentry");
-    
-
   return cli;
 }
 
