@@ -1,6 +1,7 @@
 #include "can_helper.h"
 #include "lora_helper.h"
 #include "sd_helper.h"
+#include "CLICommands.h"
 
 STM32_CAN Can(CAN1, ALT);
 static CAN_message_t CAN_RX_msg;
@@ -12,6 +13,8 @@ SdFat SD;
 
 String can_record;
 int record_sn = 1;
+
+SimpleCLI cli = setupCLI();
 
 void setup() {
   Serial.setRx(PC5);

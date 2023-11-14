@@ -1,6 +1,8 @@
 #include "STM32_CAN.h"
 #include <STM32RTC.h>
 
+extern int record_sn;
+
 STM32RTC& rtc = STM32RTC::getInstance();
 
 String processReceivedMessage(const CAN_message_t& msg) {
@@ -65,11 +67,11 @@ String processReceivedMessage(const CAN_message_t& msg) {
 
   // sn
   output += record_sn;
-  record += ",";
+  output += ",";
   record_sn++;
 
   // info
-  record += ",";
+  output += ",";
 
 	return output;
 }
