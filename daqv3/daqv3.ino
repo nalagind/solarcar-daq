@@ -1,6 +1,7 @@
 #include "can_helper.h"
 #include "lora_helper.h"
 #include "sd_helper.h"
+#include "CLICommands.h"
 #include "RTC_helper.h"
 
 
@@ -14,6 +15,8 @@ SdFat SD;
 
 String can_record;
 int record_sn = 1;
+
+SimpleCLI cli = setupCLI();
 
 void setup() {
   Serial.setRx(PC5);

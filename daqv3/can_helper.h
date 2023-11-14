@@ -1,5 +1,10 @@
 #include "STM32_CAN.h"
 
+#include <STM32RTC.h>
+
+extern int record_sn;
+
+
 String processReceivedMessage(const CAN_message_t& msg) {
   String output = "";
   // source task name
@@ -48,7 +53,7 @@ String processReceivedMessage(const CAN_message_t& msg) {
 
   // sn
   output += record_sn;
-  record += ",";
+  output += ",";
   record_sn++;
 
   // info
