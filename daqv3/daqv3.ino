@@ -3,6 +3,9 @@
 #include "sd_helper.h"
 #include "CLICommands.h"
 #include "RTC_helper.h"
+
+STM32RTC& rtc = STM32RTC::getInstance();
+
 STM32_CAN Can(CAN1, ALT);
 static CAN_message_t CAN_RX_msg;
 
@@ -21,12 +24,29 @@ void setup() {
   Serial.setTx(PB10);
   Serial.begin(115200);
 
+  rtc.begin();
+
   Can.begin();
   Can.setBaudRate(500000);
 
   lora_init();
 
   sd_init(PC4, PA6, PA7, PA5, "data.txt");
+
+  cli.parse("config -ls");
+
+  uint16_t countdown = millis();
+  while (millis() - countdown < 4000) {
+    while (!Serial.available()) {};
+    
+    String input = Serial.readStringUntil('\n');
+    Serial.print("% ");
+    input.trim();
+    Serial.println(input);
+    cli.parse(input);
+    countdown = millis();
+  }
+  
   Serial.println("ok");
 }
 

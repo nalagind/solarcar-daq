@@ -2,8 +2,7 @@
 #include <STM32RTC.h>
 
 extern int record_sn;
-
-STM32RTC& rtc = STM32RTC::getInstance();
+extern STM32RTC& rtc;
 
 String processReceivedMessage(const CAN_message_t& msg) {
   String output = "Timestamp: ";
