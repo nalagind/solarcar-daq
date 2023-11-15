@@ -1,9 +1,10 @@
+#pragma once
 #include "STM32_CAN.h"
 
 #include <STM32RTC.h>
 
 extern int record_sn;
-
+extern STM32RTC& rtc;
 
 String processReceivedMessage(const CAN_message_t& msg) {
   String output = "";

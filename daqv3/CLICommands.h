@@ -1,16 +1,24 @@
+#pragma once
 
 #include <SimpleCLI.h>
+#include "RTC_helper.h"
 #include <EEPROM.h>
 
-#define ARG_DATETIME "date time,dt"
-#define ARG_CAN_RATE "can rate,cr"
-#define ARG_LORA_FREQ "lora freq,lf"
+#define ARG_DATETIME "date time"
+#define ARG_CAN_RATE "can rate(k),cr"
+#define ARG_LORA_FREQ "lora freq(M),lf"
 #define ARG_LORA_BANDWIDTH "lora bdwdth,bw"
 #define ARG_LORA_SF "lora SF,sf"
 #define ARG_LORA_CR "lora CR,cr"
 #define ARG_LORA_CRC "lora CRC,crc"
 #define ARG_FILE_OVERWRITE "overwrite,ow"
 #define ARG_FILENAME "filename,fn"
+#define ARG_YEAR "year,yr"
+#define ARG_MONTH "month,mo"
+#define ARG_DAY "day,day"
+#define ARG_HOUR "hour,hr"
+#define ARG_MIN "minute,min"
+#define ARG_SEC "second,sec"
 
 #define ARG_RESTART "restart"
 #define ARG_LISTCONFIG "ls,list"
@@ -22,8 +30,6 @@ enum OperatingMode {
     TRACE_CAR_MODE
 };
 
-extern OperatingMode currentMode;
-
 struct Preferences {
   uint16_t can_rate;
   float_t lora_frequency;
@@ -34,6 +40,9 @@ struct Preferences {
   bool file_overwrite;
   char filename[32];
 };
+
+extern OperatingMode currentMode;
+extern Preferences pref;
 
 void errorCallback(cmd_error* e) {
     CommandError cmdError(e);
@@ -62,7 +71,6 @@ void configCmdCallback(cmd* c) {
     HAL_NVIC_SystemReset();
   }
   
-  Preferences pref;
   EEPROM.get(0, pref);
 
   uint16_t can_rate = pref.can_rate;
@@ -76,7 +84,7 @@ void configCmdCallback(cmd* c) {
   strcpy(filename, pref.filename);
 
   if (cmd.getArg(ARG_LISTCONFIG).isSet()) {
-    Serial.println("\nDAQ CONFIG MENU\nitem\t\t\tset with\tcurrent value");
+    Serial.println("\nDAQ CONFIG MENU\nitem   set with   current value");
     Serial.println("-----------------------------------------------------------");
 
     for (int i = 0; i < cmd.countArgs() - 2; i++) {
@@ -86,13 +94,16 @@ void configCmdCallback(cmd* c) {
 
       // String s = "not set";
       char buf[64];
-      sprintf(buf, "%s\t\t-%s\t\t"
+      sprintf(buf, "%s   -%s   "
         , argName.substring(0, argName.indexOf(',')).c_str()
         , argName.substring(argName.indexOf(',') + 1).c_str());
       Serial.print(buf);
+      buf[0] = 0;
 
       if (strstr(argn, "date") != NULL) {
-        Serial.println("2023-10-31");
+        sprintf(buf, "%04d/%02d/%02d %02d:%02d:%02d", rtc.getYear() + 2000, rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+        Serial.println(buf);
+        buf[0] = 0;
       }
 
       if (strstr(argn, "can rate") != NULL) {
@@ -125,6 +136,10 @@ void configCmdCallback(cmd* c) {
       
       if (strstr(argn, "filename") != NULL) {
         Serial.println(filename);
+      }
+      
+      if (strstr(argn, "year") || strstr(argn, "month") || strstr(argn, "day") || strstr(argn, "hour") || strstr(argn, "minute") || strstr(argn, "second") != NULL) {
+        Serial.println();
       }
     }
     Serial.print("\n\n");
@@ -172,6 +187,30 @@ void configCmdCallback(cmd* c) {
       if (strstr(argn, "filename") != NULL) {
         arg.getValue().toCharArray(pref.filename, 32);
       }
+
+      if (strstr(argn, "year") != NULL) {
+        rtc.setYear(value.toInt() - 2000);
+      }
+
+      if (strstr(argn, "month") != NULL) {
+        rtc.setMonth(value.toInt());
+      }
+
+      if (strstr(argn, "day") != NULL) {
+        rtc.setDay(value.toInt());
+      }
+
+      if (strstr(argn, "hour") != NULL) {
+        rtc.setHours(value.toInt());
+      }
+
+      if (strstr(argn, "minute") != NULL) {
+        rtc.setMinutes(value.toInt());
+      }
+
+      if (strstr(argn, "second") != NULL) {
+        rtc.setSeconds(value.toInt());
+      }
     }
   }
 
@@ -213,13 +252,17 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_LORA_SF, NOENTRY);
   config.addArg(ARG_LORA_CR, NOENTRY);
   config.addArg(ARG_LORA_CRC, NOENTRY);
-  config.addFlagArg(ARG_FILE_OVERWRITE, NOENTRY);
+  config.addFlagArg(ARG_FILE_OVERWRITE);
   config.addArg(ARG_FILENAME, NOENTRY);
+  config.addArg(ARG_YEAR, NOENTRY);
+  config.addArg(ARG_MONTH, NOENTRY);
+  config.addArg(ARG_DAY, NOENTRY);
+  config.addArg(ARG_HOUR, NOENTRY);
+  config.addArg(ARG_MIN, NOENTRY);
+  config.addArg(ARG_SEC, NOENTRY);
 
   config.addFlagArg(ARG_LISTCONFIG);
   config.addFlagArg("restart");
     
   return cli;
 }
-
-

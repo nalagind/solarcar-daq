@@ -70,7 +70,7 @@ void FSK_Transmit(String str) {
 }
 
 void FSK_Receive(String str) {
-	state = radio.receive(str);
+	int state = radio.receive(str);
   /*
     byte byteArr[8];
     int state = radio.receive(byteArr, 8);
