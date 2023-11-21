@@ -13,7 +13,7 @@ void FSK_init() {
     Serial.println(state);
     while (true);
   }
-  state = radio.setFrequency(433.5);
+  state = radio.setFrequency(915);
   state = radio.setBitRate(250.0);
   state = radio.setFrequencyDeviation(10.0);
   state = radio.setRxBandwidth(395.0);

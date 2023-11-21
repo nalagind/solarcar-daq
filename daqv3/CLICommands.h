@@ -12,6 +12,7 @@
 #define ARG_LORA_CR "lora CR,cr"
 #define ARG_LORA_CRC "lora CRC,crc"
 #define ARG_FILE_OVERWRITE "overwrite,ow"
+#define ARG_STARTUP_DELAY "startup,delay"
 #define ARG_FILENAME "filename,fn"
 #define ARG_YEAR "year,yr"
 #define ARG_MONTH "month,mo"
@@ -38,6 +39,7 @@ struct Preferences {
   uint8_t lora_coding_rate;
   uint8_t lora_CRC;
   bool file_overwrite;
+  uint8_t startup_delay;
   char filename[32];
 };
 
@@ -80,6 +82,7 @@ void configCmdCallback(cmd* c) {
   uint8_t lora_coding_rate = pref.lora_coding_rate;
   uint8_t lora_CRC = pref.lora_CRC;
   bool file_overwrite = pref.file_overwrite;
+  uint8_t startup_delay = pref.startup_delay;
   char filename[32];
   strcpy(filename, pref.filename);
 
@@ -122,7 +125,7 @@ void configCmdCallback(cmd* c) {
         Serial.println(lora_spreading_factor);
       }
 
-      if (strstr(argn, "CR") != NULL) {
+      if (strstr(argn, "CR,cr") != NULL) {
         Serial.println(lora_coding_rate);
       }
 
@@ -136,6 +139,10 @@ void configCmdCallback(cmd* c) {
       
       if (strstr(argn, "filename") != NULL) {
         Serial.println(filename);
+      }
+
+      if (strstr(argn, "delay") != NULL) {
+        Serial.println(startup_delay);
       }
       
       if (strstr(argn, "year") || strstr(argn, "month") || strstr(argn, "day") || strstr(argn, "hour") || strstr(argn, "minute") || strstr(argn, "second") != NULL) {
@@ -172,7 +179,7 @@ void configCmdCallback(cmd* c) {
         pref.lora_spreading_factor = value.toInt();
       }
 
-      if (strstr(argn, "CR") != NULL) {
+      if (strstr(argn, "CR,cr") != NULL) {
         pref.lora_coding_rate = value.toInt();
       }
 
@@ -186,6 +193,10 @@ void configCmdCallback(cmd* c) {
       
       if (strstr(argn, "filename") != NULL) {
         arg.getValue().toCharArray(pref.filename, 32);
+      }
+
+      if (strstr(argn, "delay") != NULL) {
+        pref.startup_delay = value.toInt();
       }
 
       if (strstr(argn, "year") != NULL) {
@@ -254,6 +265,7 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_LORA_CRC, NOENTRY);
   config.addFlagArg(ARG_FILE_OVERWRITE);
   config.addArg(ARG_FILENAME, NOENTRY);
+  config.addArg(ARG_STARTUP_DELAY, NOENTRY);
   config.addArg(ARG_YEAR, NOENTRY);
   config.addArg(ARG_MONTH, NOENTRY);
   config.addArg(ARG_DAY, NOENTRY);

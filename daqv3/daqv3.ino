@@ -3,7 +3,7 @@
 #include "sd_helper.h"
 #include "CLICommands.h"
 #include "RTC_helper.h"
-
+#include "FSK_helper.h"
 STM32RTC& rtc = STM32RTC::getInstance();
 
 STM32_CAN Can(CAN1, ALT);
@@ -31,7 +31,7 @@ void setup() {
 
   uint16_t countdown = millis();
   Serial.println("starting in");
-  while (millis() - countdown < 10000) {
+  while (millis() - countdown < pref.startup_delay * 1000) {
     if (Serial.available()) {
       String input = Serial.readStringUntil('\n');
       Serial.print("% ");
@@ -41,9 +41,9 @@ void setup() {
       countdown = millis();
     }
 
-    if ((millis() - countdown) % 1000 == 0) {
-      Serial.print(10 - (millis() - countdown) / 1000);
-      delay(1);
+    if ((millis() - countdown) % 1000 <= 3) {
+      Serial.print(pref.startup_delay - (millis() - countdown) / 1000);
+      delay(5);
     }
   }
 
@@ -67,6 +67,7 @@ void loop() {
     }
     Serial.println("record line written");
 
-    LoRaTransmit(can_record);
+    //LoRaTransmit(can_record);
+    FSK_Transmit(can_record);
   }
 }
