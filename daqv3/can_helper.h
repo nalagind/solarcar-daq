@@ -1,13 +1,33 @@
+#include "pins_arduino_analog.h"
+#include "itoa.h"
+#include <cstdio>
+#include <sys/_stdint.h>
 #pragma once
 #include "STM32_CAN.h"
-
 #include <STM32RTC.h>
+
+typedef void (*funcPointer)(const CAN_message_t& msg, char* interpretation);
 
 extern int record_sn;
 extern STM32RTC& rtc;
 
-String processReceivedMessage(const CAN_message_t& msg) {
+struct CAN_node {
+  uint32_t id;
+  const char* name;
+  funcPointer data_interpreter;
+  const char* info;
+};
+
+String processReceivedMessage(const CAN_message_t& msg, CAN_node node) {
   String output = "";
+  
+  // time
+  char strbuf[42] = "";
+  sprintf(strbuf, "%04d/%02d/%02d %02d:%02d:%02d", rtc.getYear() + 2000, rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+  output += strbuf;
+  output += ",";
+  strbuf[0] = 0;
+
   // source task name
   output += "can rx,";
 
@@ -23,34 +43,37 @@ String processReceivedMessage(const CAN_message_t& msg) {
 
   // can id
   if (msg.flags.extended == false) {
-      output += " \nStandard ID: ";
+      output += " Standard ID: ";
   } else {
-      output += " \nExtended ID: ";
+      output += " Extended ID: ";
   }
   output += msg.id;
-  output += ",";
-  output += "\nDLC: ";
+  output += " ";
+  output += "DLC: ";
   output += msg.len;
+  output += ",";
 
   // can data
-  if (msg.flags.remote == false) {
-      output += "\nbuf: ";
-      for (int i = 0; i < msg.len; i++) {
-          output += "0x";
-          output += msg.buf[i];
-          if (i != (msg.len - 1)) output += " ";
-      }
-  } else {
-      output += "\nData: REMOTE REQUEST FRAME";
-  }
-  /*
+  // if (msg.flags.remote == false) {
+  //     output += "buf: ";
+  //     for (int i = 0; i < msg.len; i++) {
+  //         output += "0x";
+  //         output += msg.buf[i];
+  //         if (i != (msg.len - 1)) output += " ";
+  //     }
+  // } else {
+  //     output += "Data: REMOTE REQUEST FRAME";
+  // }
+  node.data_interpreter(msg, strbuf);
+  output += strbuf;
   output += ",";
+  strbuf[0] = 0;
 
-	// can telemetry
+	// telemetry
   output += ",";
 
   // source info
-  output += ",";
+  output += node.name;
 
   // sn
   output += record_sn;
@@ -58,41 +81,60 @@ String processReceivedMessage(const CAN_message_t& msg) {
   record_sn++;
 
   // info
-  record += ",";
-  */
+  output += node.info;
+  output += "\n";
 
 	return output;
 }
 
-// std::map<uint32_t, String> messageNameMap;
+void read_accel(const CAN_message_t& msg, char* interpretation) {
+  int16_t accel[3];
 
-// void initializeMessageNameMap() {
-//   messageNameMap[0x10] = "HazardSignal";
-//   messageNameMap[0x11] = "RightSignal";
-//   messageNameMap[0x12] = "LeftSignal";
-//   messageNameMap[0x13] = "FrontSignal";
-//   messageNameMap[0x14] = "BackSignal";
-//   messageNameMap[0x15] = "horn";
-//   messageNameMap[0x02] = "cruizeCtrlSpeed";
-//   messageNameMap[0x09] = "solarCellOutputEffPercent";
-//   messageNameMap[0x02F4] = "Battery Status (BATT_ST)";
-//   messageNameMap[0x04F4] = "Cell Voltage (CELL_VOLT)";
-//   messageNameMap[0x05F4] = "Cell Temperature (CELL_TEMP)";
-//   messageNameMap[0x07F4] = "Fault Information (ALM_INFO)";
-//   messageNameMap[0x08850225] = "Frame 0 Rear Left Wheel";
-//   messageNameMap[0x08850245] = "Frame 0 Rear Right Wheel";
-//   messageNameMap[0x08850265] = "Frame 0 Front Left Wheel";
-//   messageNameMap[0x08850285] = "Frame 0 Front Right Wheel";
-//   messageNameMap[0x08950225] = "Frame 1 Rear Left Wheel";
-//   messageNameMap[0x08950245]= "Frame 1 Rear Right Wheel";
-//   messageNameMap[0x08950265]= "Frame 1 Front Left Wheel";
-//   messageNameMap[0x08950285]= "Frame 1 Front Right Wheel";
-//   messageNameMap[0x08A50225]="Frame 2 Rear Left Wheel";
-//   messageNameMap[0x08A50245]= "Frame 2 Rear Right Wheel";
-//   messageNameMap[0x08A50265]= "Frame 2 Front Left Wheel";
-//   messageNameMap[0x08A50285]= "Frame 2 Front Right Wheel";
-//   messageNameMap[0x08F89540] = "Request Command Rear Left Wheel";
-//   messageNameMap[0x08F91540] = "Request Command Rear Right Wheel";
-//   messageNameMap[0x08F99540] = "Request Command Front Left Wheel";
-//   messageNameMap[0x08FA9540] = "Request Command Front Right Wheel";
-// }
+  accel[0] = msg.buf[0] << 8 | msg.buf[1];
+  accel[1] = msg.buf[2] << 8 | msg.buf[3];
+  accel[2] = msg.buf[4] << 8 | msg.buf[5];
+
+  sprintf(interpretation, "%d %d %d", accel[0], accel[1], accel[2]);
+}
+
+CAN_node daq_susp_accel {
+  .id = 0x1A5,
+  .name = "DAQ_susp_accel",
+  .data_interpreter = read_accel,
+  .info = "suspension DAQ accelerometer"
+};
+
+CAN_node CAN_node_lookup[] = {
+  daq_susp_accel,
+};
+
+void read_generic(const CAN_message_t& msg, char* interpretation) {
+  strcat(interpretation, "buf: ");
+  if (msg.flags.remote == false) {
+    for (int i = 0; i < msg.len; i++) {
+        strcat(interpretation, "0x");
+        sprintf(interpretation, "%x", msg.buf[i]);
+        if (i != (msg.len - 1)) strcat(interpretation, " ");
+    }
+  } else {
+      strcat(interpretation, "Data: REMOTE REQUEST FRAME");
+  }
+}
+
+const uint16_t nodes_count = sizeof(CAN_node_lookup) / sizeof(CAN_node);
+
+CAN_node identify_CAN_node(uint32_t id) {
+  for (int i = 0; i < nodes_count; i++) {
+    if (CAN_node_lookup[i].id == id) {
+      return CAN_node_lookup[i];
+    }
+  }
+
+  CAN_node unknown {
+    .id = id,
+    .name = "unknown node",
+    .data_interpreter = read_generic,
+    .info = "unknown node"
+  };
+  return unknown;
+}

@@ -25,6 +25,9 @@ void setup() {
   Serial.setTx(PB10);
   Serial.begin(115200);
 
+  pinMode(PB6, OUTPUT);
+  digitalWrite(PB6, LOW);
+
   rtc.begin();
 
   cli.parse("config -ls");
@@ -43,6 +46,7 @@ void setup() {
 
     if ((millis() - countdown) % 1000 <= 3) {
       Serial.print(pref.startup_delay - (millis() - countdown) / 1000);
+      Serial.print(" ");
       delay(5);
     }
   }
@@ -58,16 +62,25 @@ void setup() {
 }
 
 void loop() {
-  if (Can.read(CAN_RX_msg) ) {
-    can_record = processReceivedMessage(CAN_RX_msg);
+  if (Can.read(CAN_RX_msg)) {
+    Serial.println("received");
+    CAN_node node = identify_CAN_node(CAN_RX_msg.id);
+    can_record = processReceivedMessage(CAN_RX_msg, node);
     Serial.println(can_record);
     
-    if (!writeFile("data.txt", can_record.c_str())) {
-      Serial.println("Writing to file failed");
+    if (pref.file_overwrite) {
+      if (!writeFile(pref.filename, can_record.c_str())) {
+        Serial.println("Writing to file failed");
+      }
+      Serial.println("record line written");
+    } else {
+      if (!appendFile(pref.filename, can_record.c_str())) {
+        Serial.println("Writing to file failed");
+      }
+      Serial.println("record line written");
     }
-    Serial.println("record line written");
 
-    //LoRaTransmit(can_record);
-    FSK_Transmit(can_record);
+    LoRaTransmit(can_record);
+    // FSK_Transmit(can_record);
   }
 }

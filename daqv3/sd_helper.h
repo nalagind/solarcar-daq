@@ -4,41 +4,37 @@
 extern SdFat SD;
 File file;
 
-bool writeFile(const char *path, const char *message) {
+bool appendFile(const char *path, const char *message) {
   file = SD.open(path, FILE_WRITE); //FILEWRITE includes flags for creating file, appending, and R&W
   if (!file) {
-    Serial.println("Failed to open file for writing, may not exist yet");
+    Serial.println("Failed to open file for appending");
     return false;
   }
 
   if (!file.println(message)) {
-    Serial.println("Write failed");
     file.close();
     return false;
   }
 
   file.close();
-  Serial.println("File written");
   return true;
 }
 
-// void appendFile(const char *path, const char *message) {
-//     Serial.printf("Appending to file: %s\n", path);
+bool writeFile(const char *path, const char *message) {
+  file = SD.open(path, O_RDWR | O_CREAT);
+  if (!file) {
+    Serial.println("Failed to open file for writing");
+    return false;
+  }
 
-//     file = SD.open(path, O_RDWR | O_CREAT | O_AT_END);
-//     if (!file) {
-//         Serial.println("Failed to open file for appending");
-//         return;
-//     }
+  if (!file.print(message)) {
+    file.close();
+    return false;
+  }
 
-//     if (file.print(message)) {
-//         Serial.println("Message appended");
-//     } else {
-//         Serial.println("Append failed");
-//     }
-
-//     file.close();
-// }
+  file.close();
+  return true;
+}
 
 bool sd_init(uint32_t chipSelectPin, uint32_t miso, uint32_t mosi, uint32_t sclk, const char *path) {
   //need to change SPI pins for timeconsumer board

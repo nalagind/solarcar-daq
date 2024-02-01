@@ -5,7 +5,7 @@
 #include <EEPROM.h>
 
 #define ARG_DATETIME "date time"
-#define ARG_CAN_RATE "can rate(k),cr"
+#define ARG_CAN_RATE "can rate(k),cn"
 #define ARG_LORA_FREQ "lora freq(M),lf"
 #define ARG_LORA_BANDWIDTH "lora bdwdth,bw"
 #define ARG_LORA_SF "lora SF,sf"
@@ -188,7 +188,7 @@ void configCmdCallback(cmd* c) {
       }
 
       if (strstr(argn, "overwrite") != NULL) {
-        pref.file_overwrite = arg.isSet();
+        pref.file_overwrite = !pref.file_overwrite;
       }
       
       if (strstr(argn, "filename") != NULL) {

@@ -35,11 +35,9 @@ void alarmMatch(void *data) {
   Serial.println("Alarm Match!");
 }
 
-// void timeStamp()
-// {
-//   Serial.printf("%02d/%02d/%02d ", rtc.getDay(), rtc.getMonth(), rtc.getYear());
-//   Serial.printf("%02d:%02d:%02d.%03d\n", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds(), rtc.getSubSeconds());
-// }
+void getTimeStamp(char* buf) {
+  sprintf(buf, "%04d/%02d/%02d %02d:%02d:%02d", rtc.getYear() + 2000, rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+}
 
 
 void stopWatch(int sec){
