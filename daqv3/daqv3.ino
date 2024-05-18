@@ -4,6 +4,7 @@
 #include "CLICommands.h"
 #include "RTC_helper.h"
 #include "FSK_helper.h"
+#include "logger.h"
 STM32RTC& rtc = STM32RTC::getInstance();
 
 STM32_CAN Can(CAN1, ALT);
@@ -64,23 +65,27 @@ void setup() {
 void loop() {
   if (Can.read(CAN_RX_msg)) {
     Serial.println("received");
-    CAN_node node = identify_CAN_node(CAN_RX_msg.id);
-    can_record = processReceivedMessage(CAN_RX_msg, node);
-    Serial.println(can_record);
+    Log logger(record_sn, "can msg");
+    process_CAN_msg(CAN_RX_msg, logger);
+    char buf[100];
+    CSV_Header descp_req[] = {timestamp, can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
+    logger.describe(buf, descp_req, 5);
+    Serial.println(buf);
     
-    if (pref.file_overwrite) {
-      if (!writeFile(pref.filename, can_record.c_str())) {
-        Serial.println("Writing to file failed");
-      }
-      Serial.println("record line written");
-    } else {
-      if (!appendFile(pref.filename, can_record.c_str())) {
-        Serial.println("Writing to file failed");
-      }
-      Serial.println("record line written");
-    }
+    // if (pref.file_overwrite) {
+    //   if (!writeFile(pref.filename, can_record.c_str())) {
+    //     Serial.println("Writing to file failed");
+    //   }
+    //   Serial.println("record line written");
+    // } else {
+    //   if (!appendFile(pref.filename, can_record.c_str())) {
+    //     Serial.println("Writing to file failed");
+    //   }
+    //   Serial.println("record line written");
+    // }
 
-    LoRaTransmit(can_record);
+    // LoRaTransmit(can_record);
     // FSK_Transmit(can_record);
+    record_sn++;
   }
 }
