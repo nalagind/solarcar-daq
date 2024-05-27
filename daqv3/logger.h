@@ -1,6 +1,8 @@
 #pragma once
 
 #include <STM32RTC.h>
+#include <SdFat.h>
+#include "BufferedPrint.h"
 
 extern STM32RTC& rtc;
 
@@ -48,7 +50,7 @@ enum CSV_Header {
     daq_susp_RR_rpm,
     daq_susp_RR_temp,
 
-    comment,
+    // comment,
 
     LAST,
 };
@@ -97,98 +99,194 @@ const char* csv_header(CSV_Header header) {
         case daq_susp_RR_rpm: return "daq_susp_RR_rpm";
         case daq_susp_RR_temp: return "daq_susp_RR_temp";
 
-        case comment: return "comment";
+        // case comment: return "comment";
 
         case LAST: return "";
     }
 }
 
-struct Log {
-    int front = 0;
-    int indices[10];
-    char* values[10];
+enum DataType {
+    Int, UInt8_T, UInt32_T, Float, Char_Ptr
+};
 
+union DataUnion {
+    int i;
+    uint8_t ui8;
+    uint32_t ui32;
+    float f;
+    char* s;
+};
+
+enum LogType {
+    CAN, DAQ, Err
+};
+
+extern File file;
+
+template <typename WriteClass, uint8_t BUF_DIM>
+class DAQBufferedPrint: public BufferedPrint<WriteClass, BUF_DIM> {
+private:
+    bool write_enabled;
+    uint32_t writeclass_write_count;
+
+public:
+    bool sync() {
+        if (!write_enabled) {
+            return true;
+        }
+        bool r = BufferedPrint<WriteClass, BUF_DIM>::sync();
+        if (r) writeclass_write_count++;
+        return r;
+    }
+
+    size_t write(const void* src, size_t n) {
+        if (!write_enabled) {
+            return n;
+        }
+        return BufferedPrint<WriteClass, BUF_DIM>::write(src, n);
+    }
+
+    void enable_write(bool e) { write_enabled = e; }
+
+    explicit DAQBufferedPrint(WriteClass* wr, bool write_e = true):
+        BufferedPrint<WriteClass, BUF_DIM>(wr), write_enabled(write_e), writeclass_write_count(0) {}
+
+    uint32_t get_writeclass_write_count() { return writeclass_write_count; }
+};
+
+struct CSV_Row {
+private:
+    int front = 0;
+    CSV_Header headers[10];
+    DataType types[10];
+    DataUnion values[10];
+    bool organized = false;
+
+    const CSV_Header no_fltr[1] = {CSV_Header::LAST};
+
+public:
     void append(CSV_Header header, int value) {
-        indices[front] = header;
-        char val[7];
-        values[front] = itoa(value, val, 10);
+        headers[front] = header;
+        types[front] = DataType::Int;
+        values[front].i = value;
         front++;
+        organized = false;
     }
 
     void append(CSV_Header header, uint8_t value) {
-        indices[front] = header;
-        char val[4];
-        values[front] = itoa(value, val, 10);
+        headers[front] = header;
+        types[front] = DataType::UInt8_T;
+        values[front].ui8 = value;
         front++;
+        organized = false;
     }
 
     void append(CSV_Header header, uint32_t value) {
-        indices[front] = header;
-        char val[11];
-        values[front] = itoa(value, val, 10);
+        headers[front] = header;
+        types[front] = DataType::UInt32_T;
+        values[front].ui32 = value;
         front++;
+        organized = false;
     }
 
     void append(CSV_Header header, float value) {
-        indices[front] = header;
-        char val[32];
-        // snprintf(val, sizeof(val), "%.3f", value);
-        dtostrf(value, 6, 3, val);
-        values[front] = val;
+        headers[front] = header;
+        types[front] = DataType::Float;
+        values[front].f = value;
         front++;
+        organized = false;
+    }
 
-        for (int i = 0; i < front; i++) {
-            Serial.println(values[i]);
+    void append(CSV_Header header, const char* value, int length) {
+        headers[front] = header;
+        types[front] = DataType::Char_Ptr;
+        char* s = new char[length + 1];
+        strcpy(s, value);
+        values[front].s = s;
+        front++;
+        organized = false;
+    }
+
+    CSV_Row(uint32_t sn, LogType type) {
+        append(CSV_Header::sn, sn);
+
+        if (sn == 0) {
+            char timestamp[18];
+            snprintf(timestamp, sizeof(timestamp), "%02d/%02d/%02d %02d:%02d:%02d", rtc.getYear(), rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+            append(CSV_Header::timestamp, timestamp, 18);
+        } else {
+            char timestamp[9];
+            snprintf(timestamp, sizeof(timestamp), "%02d:%02d:%02d", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+            append(CSV_Header::timestamp, timestamp, 9);
         }
+
+        append(CSV_Header::log_type, type);
     }
 
-    void append(CSV_Header header, char* value) {
-        indices[front] = header;
-        values[front] = value;
-        front++;
+    void organize() { organized = true; }
+
+    template <typename WriteClass, uint8_t BUF_DIM>
+    void write_row(DAQBufferedPrint<WriteClass, BUF_DIM>& bp) {
+        write_row(bp, no_fltr);
     }
 
-    Log(uint32_t sn, char* log_type) {
-        indices[front] = CSV_Header::timestamp;
-        char val[20];
-        snprintf(val, sizeof(val), "%04d/%02d/%02d %02d:%02d:%02d", rtc.getYear() + 2000, rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-        values[front] = val;
-        front++;
+    template <typename WriteClass, uint8_t BUF_DIM, size_t N>
+    void write_row(DAQBufferedPrint<WriteClass, BUF_DIM>& bp, CSV_Header (&filters)[N], char term = ',', bool with_header = false, bool aligned = true) {
+        if (!organized) organize();
 
-        indices[front] = CSV_Header::sn;
-        values[front] = itoa(sn, val, 10);
-        front++;
+        int last_col = 0;
+        size_t filters_count = (N == 1 && filters[0] == CSV_Header::LAST) ? 0 : N;
+        if (filters_count) {
+            for (int i = 0; i < front; i++) {
+                for (int j = 0; i < filters_count; j++) {
+                    if (headers[i] == filters[j]) {
+                        if (with_header) {
+                            bp.printField(csv_header(headers[i]), ' ');
+                        }
 
-        indices[front] = CSV_Header::log_type;
-        values[front] = log_type;
-        front++;
-    }
-
-    void generate_row(char* buffer) {
-        strcpy(buffer, "");
-        int last_index = 0;
-        for (int i = 0; i < front; i++) {
-            for (int j = last_index; j < indices[i]; j++) {
-                strcat(buffer, ",");
+                        switch (types[i]) {
+                            case Int: { bp.printField(values[i].i, term); }
+                            case UInt8_T: { bp.printField(values[i].ui8, term); }
+                            case UInt32_T: { bp.printField(values[i].ui32, term); }
+                            case Float: { bp.printField(values[i].f, term); }
+                            case Char_Ptr: { bp.printField(values[i].s, term); }
+                            default: { bp.printField("NAN", term); };
+                        }
+                    }
+                }
             }
-            last_index = indices[i];
-            strcat(buffer, values[i]);
-        }
-        for (int i = last_index; i < CSV_Header::LAST - 1; i++) {
-            strcat(buffer, ",");
-        }
-        strcat(buffer, "\r\n");
-    }
+        } else {
+            for (int i = 0; i < front; i++) {
+                if (aligned) {
+                    for (int j = last_col; j < headers[i]; j++) {
+                        bp.print(term);
+                    }
+                }
+                last_col = headers[i];
 
-    void describe(char* buffer, CSV_Header headers_req[], int headers_req_count) {
-        strcpy(buffer, "");
-        for (int i = 0; i < front; i++) {
-            for (int j = 0; j < headers_req_count; j++) {
-                if (headers_req[j] == indices[i]) {
-                    buffer += sprintf(buffer, "%s %s\r\n", csv_header(headers_req[j]), values[i]);
-                    break;
+                if (with_header) {
+                    bp.printField(csv_header(headers[i]), ' ');
+                }
+
+                switch (types[i]) {
+                    case Int: { bp.printField(values[i].i, term); }
+                    case UInt8_T: { bp.printField(values[i].ui8, term); }
+                    case UInt32_T: { bp.printField(values[i].ui32, term); }
+                    case Float: { bp.printField(values[i].f, term); }
+                    case Char_Ptr: { bp.printField(values[i].s, term); }
+                    default: { bp.printField("NAN", term); };
                 }
             }
         }
+        bp.println();
+    }
+
+    ~CSV_Row() {
+        for (int i = 0; i < front; i++) {
+            switch (types[i]) {
+                case Char_Ptr: delete[] values[i].s;
+                default: ;
+            }
+        }   
     }
 };

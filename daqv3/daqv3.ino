@@ -1,10 +1,11 @@
 #include "can_helper.h"
 #include "lora_helper.h"
-#include "sd_helper.h"
+// #include "sd_helper.h"
 #include "CLICommands.h"
 #include "RTC_helper.h"
 #include "FSK_helper.h"
 #include "logger.h"
+#include "sd_helper.h"
 STM32RTC& rtc = STM32RTC::getInstance();
 
 STM32_CAN Can(CAN1, ALT);
@@ -60,17 +61,19 @@ void setup() {
   lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC);
   
   Serial.println("started");
+
+  DAQBufferedPrint<Print, 32> sbp(&Serial);
 }
 
 void loop() {
   if (Can.read(CAN_RX_msg)) {
     Serial.println("received");
-    Log logger(record_sn, "can msg");
+    CSV_Row logger(record_sn, LogType::CAN);
     process_CAN_msg(CAN_RX_msg, logger);
-    char buf[100];
-    CSV_Header descp_req[] = {timestamp, can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
-    logger.describe(buf, descp_req, 5);
-    Serial.println(buf);
+    // char buf[100];
+    // CSV_Header descp_req[] = {can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
+    // logger.describe(buf, descp_req, 4);
+    // Serial.println(buf);
     
     // if (pref.file_overwrite) {
     //   if (!writeFile(pref.filename, can_record.c_str())) {

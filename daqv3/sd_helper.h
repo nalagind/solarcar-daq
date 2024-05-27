@@ -1,6 +1,8 @@
 #pragma once
 #include <SdFat.h>
 
+#define SPI_CLOCK SD_SCK_MHZ(50)
+
 extern SdFat SD;
 File file;
 
@@ -36,13 +38,13 @@ bool writeFile(const char *path, const char *message) {
   return true;
 }
 
-bool sd_init(uint32_t chipSelectPin, uint32_t miso, uint32_t mosi, uint32_t sclk, const char *path) {
+bool sd_init(uint32_t chipSelectPin = PC4, uint32_t miso = PA6, uint32_t mosi = PA7, uint32_t sclk = PA5, const char *path = "daq.csv") {
   //need to change SPI pins for timeconsumer board
   SPI.setMISO(miso); //PA6
   SPI.setMOSI(mosi); //PA7
   SPI.setSCLK(sclk); //PA5
 
-  if (!SD.begin(chipSelectPin)) { //PC4
+  if (!SD.begin(SdSpiConfig(chipSelectPin, DEDICATED_SPI, SPI_CLOCK))) { //PC4
     Serial.println("SD initialization failed!");
     return false;
   }

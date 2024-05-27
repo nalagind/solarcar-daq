@@ -77,7 +77,7 @@
 // 	return output;
 // }
 
-void read_generic(const CAN_message_t& msg, Log& logger) {
+void read_generic(const CAN_message_t& msg, CSV_Row& logger) {
   // if (msg.flags.remote == false) {
   //   for (int i = 0; i < msg.len; i++) {
   //       strcat(interpretation, "0x");
@@ -90,10 +90,10 @@ void read_generic(const CAN_message_t& msg, Log& logger) {
 
   logger.append(can_ID, msg.id);
   logger.append(can_DLC, msg.len);
-  if (msg.flags.remote == true) logger.append(can_node_name, "remote");
+  if (msg.flags.remote == true) logger.append(can_remote_request, 1);
 }
 
-void process_CAN_msg(const CAN_message_t& msg, Log& logger) {
+void process_CAN_msg(const CAN_message_t& msg, CSV_Row& logger) {
     read_generic(msg, logger);
     CAN_node node = identify_CAN_node(msg.id);
     node.data_interpreter(msg, logger);
