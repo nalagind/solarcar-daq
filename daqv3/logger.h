@@ -197,10 +197,11 @@ public:
         organized = false;
     }
 
-    void append(CSV_Header header, const char* value, int length) {
+    template <size_t N>
+    void append(CSV_Header header, const char (&value)[N]) {
         headers[front] = header;
         types[front] = DataType::Char_Ptr;
-        char* s = new char[length + 1];
+        char* s = new char[N];
         strcpy(s, value);
         values[front].s = s;
         front++;
@@ -213,11 +214,11 @@ public:
         if (sn == 0) {
             char timestamp[18];
             snprintf(timestamp, sizeof(timestamp), "%02d/%02d/%02d %02d:%02d:%02d", rtc.getYear(), rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-            append(CSV_Header::timestamp, timestamp, 18);
+            append(CSV_Header::timestamp, timestamp);
         } else {
             char timestamp[9];
             snprintf(timestamp, sizeof(timestamp), "%02d:%02d:%02d", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-            append(CSV_Header::timestamp, timestamp, 9);
+            append(CSV_Header::timestamp, timestamp);
         }
 
         append(CSV_Header::log_type, type);

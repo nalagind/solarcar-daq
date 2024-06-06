@@ -20,6 +20,7 @@
 #define ARG_HOUR "hour,hr"
 #define ARG_MIN "minute,min"
 #define ARG_SEC "second,sec"
+#define ARG_SERIAL_PRINT "serial,srl"
 
 #define ARG_RESTART "restart"
 #define ARG_LISTCONFIG "ls,list"
@@ -38,8 +39,9 @@ struct Preferences {
   uint8_t lora_spreading_factor;
   uint8_t lora_coding_rate;
   uint8_t lora_CRC;
-  bool file_overwrite;
+  uint8_t file_overwrite;
   uint8_t startup_delay;
+  uint8_t serial_print;
   char filename[32];
 };
 
@@ -81,8 +83,9 @@ void configCmdCallback(cmd* c) {
   uint8_t lora_spreading_factor = pref.lora_spreading_factor;
   uint8_t lora_coding_rate = pref.lora_coding_rate;
   uint8_t lora_CRC = pref.lora_CRC;
-  bool file_overwrite = pref.file_overwrite;
+  uint8_t file_overwrite = pref.file_overwrite;
   uint8_t startup_delay = pref.startup_delay;
+  uint8_t serial_print = pref.serial_print;
   char filename[32];
   strcpy(filename, pref.filename);
 
@@ -141,6 +144,10 @@ void configCmdCallback(cmd* c) {
         Serial.println(filename);
       }
 
+      if (strstr(argn, "serial") != NULL) {
+        Serial.println(serial_print);
+      }
+
       if (strstr(argn, "delay") != NULL) {
         Serial.println(startup_delay);
       }
@@ -188,11 +195,15 @@ void configCmdCallback(cmd* c) {
       }
 
       if (strstr(argn, "overwrite") != NULL) {
-        pref.file_overwrite = !pref.file_overwrite;
+        pref.file_overwrite = pref.file_overwrite > 0 ? 0 : 1;
       }
       
       if (strstr(argn, "filename") != NULL) {
         arg.getValue().toCharArray(pref.filename, 32);
+      }
+
+      if (strstr(argn, "serial") != NULL) {
+        pref.serial_print = pref.serial_print > 0 ? 0 : 1;
       }
 
       if (strstr(argn, "delay") != NULL) {
@@ -265,6 +276,7 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_LORA_CRC, NOENTRY);
   config.addFlagArg(ARG_FILE_OVERWRITE);
   config.addArg(ARG_FILENAME, NOENTRY);
+  config.addFlagArg(ARG_SERIAL_PRINT);
   config.addArg(ARG_STARTUP_DELAY, NOENTRY);
   config.addArg(ARG_YEAR, NOENTRY);
   config.addArg(ARG_MONTH, NOENTRY);

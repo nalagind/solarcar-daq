@@ -23,7 +23,7 @@ void read_accel(const CAN_message_t& msg, CSV_Row& logger) {
   accel[1] = (float)accel_raw[1] / 16384;
   accel[2] = (float)accel_raw[2] / 16384;
   
-  logger.append(can_node_name, "daq_susp_FL", 12);
+  logger.append(can_node_name, "daq_susp_FL");
   logger.append(daq_susp_FL_acc_x, accel[0]);
   logger.append(daq_susp_FL_acc_y, accel[1]);
   logger.append(daq_susp_FL_acc_z, accel[2]);

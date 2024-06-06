@@ -22,6 +22,8 @@ int record_sn = 1;
 SimpleCLI cli = setupCLI();
 Preferences pref;
 
+DAQBufferedPrint<Print, 32> sbp(&Serial);
+
 void setup() {
   Serial.setRx(PC5);
   Serial.setTx(PB10);
@@ -62,7 +64,7 @@ void setup() {
   
   Serial.println("started");
 
-  DAQBufferedPrint<Print, 32> sbp(&Serial);
+  sbp.enable_write(pref.serial_print == 1 ? true : false);
 }
 
 void loop() {
@@ -91,4 +93,6 @@ void loop() {
     // FSK_Transmit(can_record);
     record_sn++;
   }
+  sbp.println("running");
+  delay(50);
 }
