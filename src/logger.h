@@ -8,6 +8,7 @@
 extern STM32RTC& rtc;
 
 enum CSV_Header {
+    datestamp,
     timestamp,
     sn,
     log_type,
@@ -46,6 +47,7 @@ enum CSV_Header {
 
 const char* csv_header(CSV_Header header) {
     switch(header) {
+        case datestamp: return "date";
         case timestamp: return "time";
         case sn: return "sn";
         case log_type: return "type";
@@ -79,7 +81,7 @@ const char* csv_header(CSV_Header header) {
         // case comment: return "comment";
 
         case LAST: ;
-        default: return "";
+        default: return "?";
     }
 }
 
@@ -188,7 +190,7 @@ public:
         BufferedPrint<WriteClass, BUF_DIM>(wr), m_wr(wr), write_enabled(write_e) {}
 };
 
-struct CSV_Row {
+struct CSV_Line {
 private:
     int front = 0;
     uint8_t headers[CSV_Header::LAST] = {0};
@@ -239,18 +241,18 @@ public:
         front++;
     }
 
-    CSV_Row(uint32_t sn, LogType type) {
+    CSV_Line(uint32_t sn, LogType type) {
         append(CSV_Header::sn, sn);
 
-        if (sn == 0) {
-            char timestamp[18];
-            snprintf(timestamp, sizeof(timestamp), "%02d/%02d/%02d %02d:%02d:%02d", rtc.getYear(), rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-            append(CSV_Header::timestamp, timestamp);
-        } else {
-            char timestamp[9];
-            snprintf(timestamp, sizeof(timestamp), "%02d:%02d:%02d", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-            append(CSV_Header::timestamp, timestamp);
-        }
+        // if (sn == 0) {
+        //     char timestamp[18];
+        //     snprintf(timestamp, sizeof(timestamp), "%02d/%02d/%02d %02d:%02d:%02d", rtc.getYear(), rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+        //     append(CSV_Header::timestamp, timestamp);
+        // } else {
+        //     char timestamp[9];
+        //     snprintf(timestamp, sizeof(timestamp), "%02d:%02d:%02d", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
+        //     append(CSV_Header::timestamp, timestamp);
+        // }
 
         append(CSV_Header::log_type, type);
     }
@@ -294,7 +296,7 @@ public:
                         case UInt32_T: { bp.printField(values[i].ui32, term); break; }
                         case UInt32_T_Hex: { bp.printFieldHex(values[i].ui32, term); break; }
                         case Float: { bp.printField(values[i].f, term); break; }
-                        // case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); }
+                        case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
                         default: { bp.printField("NAN", term); };
                     }
                 } else if (aligned) bp.print(term);
@@ -303,11 +305,13 @@ public:
         bp.println();
     }
 
-    ~CSV_Row() {
-        for (int i = 0; i < front; i++) {
-            switch (types[i]) {
-                case Char_Ptr: delete[] values[i].s;
-                default: ;
+    ~CSV_Line() {
+        for (int i = 0; i < CSV_Header::LAST; i++) {
+            if (headers[i] == 1) {
+                switch (types[i]) {
+                    case Char_Ptr: delete[] values[i].s;
+                    default: ;
+                }
             }
         }   
     }
@@ -333,24 +337,41 @@ public:
     // }
 };
 
-// struct Timestamp {
-//     uint8_t month;
-//     uint8_t day;
-//     uint8_t hour;
-//     uint8_t min;
-//     uint8_t sec;
+struct Timestamp {
+    uint8_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hour;
+    uint8_t min;
+    uint8_t sec;
 
-//     template <typename WriteClass, uint8_t BUF_DIM>
-//     void to_csv_string(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
-//         bp.printField
-//     }
-// };
+    Timestamp() {
+        year = rtc.getYear();
+        month = rtc.getMonth();
+        day = rtc.getDay();
+        hour = rtc.getHours();
+        min = rtc.getMinutes();
+        sec = rtc.getSeconds();
+    }
 
-// struct GPS_Log {
-//     double lat;
-//     double lng;
-//     double alt;
-// };
+    void to_csv_string(CSV_Line& l) {
+        char d[7];
+        snprintf(d, sizeof(d), "%06u", day + month * 100 + year * 10000);
+        char t[7];
+        snprintf(t, sizeof(t), "%06u", sec + min * 100 + hour * 10000);
+        l.append(datestamp, d);
+        l.append(timestamp, t);
+    }
+};
+
+struct GPS_Log {
+    float latitude;
+    float longitude;
+    int fix_age;
+    int altitude_m;
+    int speed_kmph;
+    int satellites;
+};
 
 // struct CAN_Log {
 //     Timestamp t;
@@ -359,18 +380,36 @@ public:
 //     uint8_t data[8];
 // };
 
-// struct LogBlob {
-//     LogType type;
-//     Timestamp timestamp;
-//     union Blob {
-//         GPS_Log gps;
-//         CAN_Log can;
-//     };
-// };
+struct LogBlob {
+    LogType type;
+    Timestamp timestamp;
+    union {
+        GPS_Log gps;
+        CAN_message_t can_rx_msg;
+    };
+
+    LogBlob(LogType t): type{t} {};
+
+    void to_csv_line(CSV_Line& l) {
+        l.append(log_type, type);
+        timestamp.to_csv_string(l);
+        switch (type) {
+            case CAN: {
+                // process_CAN_msg(can_rx_msg, l);
+                break;
+            }
+            case GPS:
+            case DAQ:
+            case Radio:
+            case Err:
+            default: ;
+        }
+    }
+};
 
 // template <typename WriteClass, uint8_t BUF_DIM>
 // void bpwrite_csv_line(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, LogBlob& blob) {
-//     CSV_Row
+//     CSV_Line
 //     blob.timestamp.to_csv_string(bp);
 //     switch (blob.type) {
 //         case LogType::GPS:

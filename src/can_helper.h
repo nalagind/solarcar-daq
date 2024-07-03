@@ -77,7 +77,7 @@
 // 	return output;
 // }
 
-void read_generic(const CAN_message_t& msg, CSV_Row& logger) {
+void read_generic(const CAN_message_t& msg, CSV_Line& logger) {
   // if (msg.flags.remote == false) {
   //   for (int i = 0; i < msg.len; i++) {
   //       strcat(interpretation, "0x");
@@ -97,7 +97,7 @@ void read_generic(const CAN_message_t& msg, CSV_Row& logger) {
   }
 }
 
-void process_CAN_msg(const CAN_message_t& msg, CSV_Row& logger) {
+void process_CAN_msg(const CAN_message_t& msg, CSV_Line& logger) {
     read_generic(msg, logger);
     CAN_node node = identify_CAN_node(msg.id);
     if (node.data_interpreter != nullptr) node.data_interpreter(msg, logger);

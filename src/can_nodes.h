@@ -2,7 +2,7 @@
 
 #include "logger.h"
 
-typedef void (*funcPointer)(const CAN_message_t& msg, CSV_Row& logger);
+typedef void (*funcPointer)(const CAN_message_t& msg, CSV_Line& logger);
 
 struct CAN_node {
   uint32_t id;
@@ -11,7 +11,7 @@ struct CAN_node {
   const char* info;
 };
 
-// void read_accel(const CAN_message_t& msg, CSV_Row& logger) {
+// void read_accel(const CAN_message_t& msg, CSV_Line& logger) {
 //   int16_t accel_raw[3];
 //   float accel[3];
 

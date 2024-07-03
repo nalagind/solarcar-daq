@@ -70,19 +70,23 @@ void setup() {
   Serial.println("started");
 
   sbp.enable_write(pref.sbp_enable == 1);
-  sdbp.enable_write(false);
+  sdbp.enable_write(true);
   sbp.println("ok");
 }
 
 void loop() {
   if (Can.read(CAN_RX_msg)) {
     sbp.println("can msg");
-    CSV_Row logger(record_sn, LogType::CAN);
-    process_CAN_msg(CAN_RX_msg, logger);
+    CSV_Line logger(record_sn, LogType::CAN);
+    LogBlob log(CAN);
+    // log.can_rx_msg = CAN_RX_msg;
+    // process_CAN_msg(CAN_RX_msg, logger);
     // CSV_Header descp_req[] = {can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
     // logger.append(CSV_Header::can_ID, CAN_RX_msg.id);
-    logger.write_row(sbp, false, false);
-    logger.write_row(sdbp);
+    log.to_csv_line(logger);
+
+    logger.write_row(sbp, true, false);
+    // logger.write_row(sdbp);
     
     // if (pref.file_overwrite) {
     //   if (!writeFile(pref.filename, can_record.c_str())) {
