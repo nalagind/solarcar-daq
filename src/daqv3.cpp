@@ -6,7 +6,8 @@
 #include "CLICommands.h"
 #include "RTC_helper.h"
 #include "FSK_helper.h"
-#include "logger.h"
+#include "csv_logger.h"
+#include "blob.h"
 #include "sd_helper.h"
 STM32RTC& rtc = STM32RTC::getInstance();
 
@@ -19,7 +20,6 @@ SX1262 radio = new Module(PB3, PA15, PB4, PD2, SPI_3);
 SdFs SD;
 
 String can_record;
-int record_sn = 1;
 
 SimpleCLI cli = setupCLI();
 Preferences pref;
@@ -77,7 +77,7 @@ void setup() {
 void loop() {
   if (Can.read(CAN_RX_msg)) {
     sbp.println("can msg");
-    CSV_Line logger(record_sn, LogType::CAN);
+    CSV_Line logger;
     LogBlob log(CAN);
     // log.can_rx_msg = CAN_RX_msg;
     // process_CAN_msg(CAN_RX_msg, logger);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "logger.h"
+#include "csv_logger.h"
 
 typedef void (*funcPointer)(const CAN_message_t& msg, CSV_Line& logger);
 

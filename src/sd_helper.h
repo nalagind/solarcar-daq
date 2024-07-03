@@ -3,7 +3,7 @@
 #include <SdFat.h>
 #include "..\lib\SdFat\src\SpiDriver\SdSpiBaseClass.h"
 #include "..\lib\SdFat\src\BufferedPrint.h"
-#include "logger.h"
+#include "csv_logger.h"
 
 #define SD_CS PC4
 #define LED_G PB5

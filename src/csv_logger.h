@@ -1,11 +1,8 @@
 #pragma once
 
-#include <STM32RTC.h>
 #include <SdFat.h>
 #include <type_traits>
 #include "..\lib\SdFat\src\BufferedPrint.h"
-
-extern STM32RTC& rtc;
 
 enum CSV_Header {
     datestamp,
@@ -95,10 +92,6 @@ union DataUnion {
     uint32_t ui32;
     float f;
     char* s;
-};
-
-enum LogType {
-    CAN, GPS, DAQ, Radio, Err
 };
 
 enum BPBase { B_DEC, B_HEX };
@@ -241,22 +234,6 @@ public:
         front++;
     }
 
-    CSV_Line(uint32_t sn, LogType type) {
-        append(CSV_Header::sn, sn);
-
-        // if (sn == 0) {
-        //     char timestamp[18];
-        //     snprintf(timestamp, sizeof(timestamp), "%02d/%02d/%02d %02d:%02d:%02d", rtc.getYear(), rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-        //     append(CSV_Header::timestamp, timestamp);
-        // } else {
-        //     char timestamp[9];
-        //     snprintf(timestamp, sizeof(timestamp), "%02d:%02d:%02d", rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-        //     append(CSV_Header::timestamp, timestamp);
-        // }
-
-        append(CSV_Header::log_type, type);
-    }
-
     template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE>
     void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, bool with_header = false, bool aligned = true) {
         write_row(bp, no_fltr, with_header, aligned);
@@ -336,84 +313,3 @@ public:
     //     }
     // }
 };
-
-struct Timestamp {
-    uint8_t year;
-    uint8_t month;
-    uint8_t day;
-    uint8_t hour;
-    uint8_t min;
-    uint8_t sec;
-
-    Timestamp() {
-        year = rtc.getYear();
-        month = rtc.getMonth();
-        day = rtc.getDay();
-        hour = rtc.getHours();
-        min = rtc.getMinutes();
-        sec = rtc.getSeconds();
-    }
-
-    void to_csv_string(CSV_Line& l) {
-        char d[7];
-        snprintf(d, sizeof(d), "%06u", day + month * 100 + year * 10000);
-        char t[7];
-        snprintf(t, sizeof(t), "%06u", sec + min * 100 + hour * 10000);
-        l.append(datestamp, d);
-        l.append(timestamp, t);
-    }
-};
-
-struct GPS_Log {
-    float latitude;
-    float longitude;
-    int fix_age;
-    int altitude_m;
-    int speed_kmph;
-    int satellites;
-};
-
-// struct CAN_Log {
-//     Timestamp t;
-//     uint32_t id;
-//     uint8_t len;
-//     uint8_t data[8];
-// };
-
-struct LogBlob {
-    LogType type;
-    Timestamp timestamp;
-    union {
-        GPS_Log gps;
-        CAN_message_t can_rx_msg;
-    };
-
-    LogBlob(LogType t): type{t} {};
-
-    void to_csv_line(CSV_Line& l) {
-        l.append(log_type, type);
-        timestamp.to_csv_string(l);
-        switch (type) {
-            case CAN: {
-                // process_CAN_msg(can_rx_msg, l);
-                break;
-            }
-            case GPS:
-            case DAQ:
-            case Radio:
-            case Err:
-            default: ;
-        }
-    }
-};
-
-// template <typename WriteClass, uint8_t BUF_DIM>
-// void bpwrite_csv_line(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, LogBlob& blob) {
-//     CSV_Line
-//     blob.timestamp.to_csv_string(bp);
-//     switch (blob.type) {
-//         case LogType::GPS:
-
-//         case LogType::CAN:
-//     }
-// }
