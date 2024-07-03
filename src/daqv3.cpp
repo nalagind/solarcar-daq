@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 #include "can_helper.h"
 #include "lora_helper.h"
 // #include "sd_helper.h"
@@ -14,7 +16,7 @@ static CAN_message_t CAN_RX_msg;
 SPIClass SPI_3(PC12, PC11, PC10);
 SX1262 radio = new Module(PB3, PA15, PB4, PD2, SPI_3);
 
-SdFat SD;
+SdFs SD;
 
 String can_record;
 int record_sn = 1;
@@ -22,7 +24,10 @@ int record_sn = 1;
 SimpleCLI cli = setupCLI();
 Preferences pref;
 
-DAQBufferedPrint<Print, 32> sbp(&Serial);
+BufferedPrintPlus<Print, 1> sbp(&Serial);
+BufferedPrintPlus<FsFile, 255, true, 256> sdbp;
+
+uint32_t count = 0;
 
 void setup() {
   Serial.setRx(PC5);
@@ -30,7 +35,7 @@ void setup() {
   Serial.begin(115200);
 
   pinMode(PB6, OUTPUT);
-  digitalWrite(PB6, LOW);
+  digitalWrite(PB6, HIGH);
 
   rtc.begin();
 
@@ -58,24 +63,26 @@ void setup() {
   Can.begin();
   Can.setBaudRate(pref.can_rate * 1000);
 
-  sd_init(PC4, PA6, PA7, PA5, pref.filename);
+  sd_init(PC4, PA6, PA7, PA5);
 
   lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC);
   
   Serial.println("started");
 
-  sbp.enable_write(pref.serial_print == 1 ? true : false);
+  sbp.enable_write(pref.sbp_enable == 1);
+  sdbp.enable_write(false);
+  sbp.println("ok");
 }
 
 void loop() {
   if (Can.read(CAN_RX_msg)) {
-    Serial.println("received");
+    sbp.println("can msg");
     CSV_Row logger(record_sn, LogType::CAN);
     process_CAN_msg(CAN_RX_msg, logger);
-    // char buf[100];
     // CSV_Header descp_req[] = {can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
-    // logger.describe(buf, descp_req, 4);
-    // Serial.println(buf);
+    // logger.append(CSV_Header::can_ID, CAN_RX_msg.id);
+    logger.write_row(sbp, false, false);
+    logger.write_row(sdbp);
     
     // if (pref.file_overwrite) {
     //   if (!writeFile(pref.filename, can_record.c_str())) {
@@ -93,6 +100,7 @@ void loop() {
     // FSK_Transmit(can_record);
     record_sn++;
   }
-  sbp.println("running");
-  delay(50);
+  // if (count % 1000 == 0) sbp.println(count);
+  // sdbp.printField(count++, '\n');
+  // delay(5);
 }

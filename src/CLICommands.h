@@ -13,7 +13,7 @@
 #define ARG_LORA_CRC "lora CRC,crc"
 #define ARG_FILE_OVERWRITE "overwrite,ow"
 #define ARG_STARTUP_DELAY "startup,delay"
-#define ARG_FILENAME "filename,fn"
+// #define ARG_FILENAME "filename,fn"
 #define ARG_YEAR "year,yr"
 #define ARG_MONTH "month,mo"
 #define ARG_DAY "day,day"
@@ -21,6 +21,8 @@
 #define ARG_MIN "minute,min"
 #define ARG_SEC "second,sec"
 #define ARG_SERIAL_PRINT "serial,srl"
+#define ARG_BUFFEREDPRINT_BUFDIM "sdbp dim,bp"
+#define ARG_BUFFEREDPRINT_SYNCCYCLE "sdbp sync,sync"
 
 #define ARG_RESTART "restart"
 #define ARG_LISTCONFIG "ls,list"
@@ -41,8 +43,10 @@ struct Preferences {
   uint8_t lora_CRC;
   uint8_t file_overwrite;
   uint8_t startup_delay;
-  uint8_t serial_print;
-  char filename[32];
+  uint8_t sbp_enable;
+  uint16_t sdbp_dim;
+  uint16_t sdbp_sync;
+  // char filename[32];
 };
 
 extern OperatingMode currentMode;
@@ -85,9 +89,11 @@ void configCmdCallback(cmd* c) {
   uint8_t lora_CRC = pref.lora_CRC;
   uint8_t file_overwrite = pref.file_overwrite;
   uint8_t startup_delay = pref.startup_delay;
-  uint8_t serial_print = pref.serial_print;
-  char filename[32];
-  strcpy(filename, pref.filename);
+  uint8_t sbp_enable = pref.sbp_enable;
+  uint16_t sdbp_dim = pref.sdbp_dim;
+  uint16_t sdbp_sync = pref.sdbp_sync;
+  // char filename[32];
+  // strcpy(filename, pref.filename);
 
   if (cmd.getArg(ARG_LISTCONFIG).isSet()) {
     Serial.println("\nDAQ CONFIG MENU\nitem   set with   current value");
@@ -140,16 +146,24 @@ void configCmdCallback(cmd* c) {
         Serial.println(file_overwrite);
       }
       
-      if (strstr(argn, "filename") != NULL) {
-        Serial.println(filename);
-      }
+      // if (strstr(argn, "filename") != NULL) {
+      //   Serial.println(filename);
+      // }
 
       if (strstr(argn, "serial") != NULL) {
-        Serial.println(serial_print);
+        Serial.println(sbp_enable);
       }
 
       if (strstr(argn, "delay") != NULL) {
         Serial.println(startup_delay);
+      }
+
+      if (strstr(argn, "sdbp dim") != NULL) {
+        Serial.println(sdbp_dim);
+      }
+
+      if (strstr(argn, "sdbp sync") != NULL) {
+        Serial.println(sdbp_sync);
       }
       
       if (strstr(argn, "year") || strstr(argn, "month") || strstr(argn, "day") || strstr(argn, "hour") || strstr(argn, "minute") || strstr(argn, "second") != NULL) {
@@ -195,19 +209,27 @@ void configCmdCallback(cmd* c) {
       }
 
       if (strstr(argn, "overwrite") != NULL) {
-        pref.file_overwrite = pref.file_overwrite > 0 ? 0 : 1;
+        if (arg.isSet()) pref.file_overwrite = pref.file_overwrite > 0 ? 0 : 1;
       }
       
-      if (strstr(argn, "filename") != NULL) {
-        arg.getValue().toCharArray(pref.filename, 32);
-      }
+      // if (strstr(argn, "filename") != NULL) {
+      //   arg.getValue().toCharArray(pref.filename, 32);
+      // }
 
       if (strstr(argn, "serial") != NULL) {
-        pref.serial_print = pref.serial_print > 0 ? 0 : 1;
+        if (arg.isSet()) pref.sbp_enable = pref.sbp_enable > 0 ? 0 : 1;
       }
 
       if (strstr(argn, "delay") != NULL) {
         pref.startup_delay = value.toInt();
+      }
+
+      if (strstr(argn, "sdbp dim") != NULL) {
+        pref.sdbp_dim = value.toInt();
+      }
+
+      if (strstr(argn, "sdbp sync") != NULL) {
+        pref.sdbp_sync = value.toInt();
       }
 
       if (strstr(argn, "year") != NULL) {
@@ -275,9 +297,11 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_LORA_CR, NOENTRY);
   config.addArg(ARG_LORA_CRC, NOENTRY);
   config.addFlagArg(ARG_FILE_OVERWRITE);
-  config.addArg(ARG_FILENAME, NOENTRY);
+  // config.addArg(ARG_FILENAME, NOENTRY);
   config.addFlagArg(ARG_SERIAL_PRINT);
   config.addArg(ARG_STARTUP_DELAY, NOENTRY);
+  config.addArg(ARG_BUFFEREDPRINT_BUFDIM, NOENTRY);
+  config.addArg(ARG_BUFFEREDPRINT_SYNCCYCLE, NOENTRY);
   config.addArg(ARG_YEAR, NOENTRY);
   config.addArg(ARG_MONTH, NOENTRY);
   config.addArg(ARG_DAY, NOENTRY);

@@ -88,13 +88,17 @@ void read_generic(const CAN_message_t& msg, CSV_Row& logger) {
   //     strcat(interpretation, "Data: REMOTE REQUEST FRAME");
   // }
 
-  logger.append(can_ID, msg.id);
+  logger.append(can_ID, msg.id, B_HEX);
   logger.append(can_DLC, msg.len);
   if (msg.flags.remote == true) logger.append(can_remote_request, 1);
+  for (int i = 0; i < msg.len; i++) {
+    if (msg.len > 8) break;
+    logger.append(static_cast<CSV_Header>(static_cast<int>(CSV_Header::can_raw_D0) + i), msg.buf[i], B_HEX);
+  }
 }
 
 void process_CAN_msg(const CAN_message_t& msg, CSV_Row& logger) {
     read_generic(msg, logger);
     CAN_node node = identify_CAN_node(msg.id);
-    node.data_interpreter(msg, logger);
+    if (node.data_interpreter != nullptr) node.data_interpreter(msg, logger);
 }

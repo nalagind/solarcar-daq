@@ -2,7 +2,8 @@
 
 #include <STM32RTC.h>
 #include <SdFat.h>
-#include "BufferedPrint.h"
+#include <type_traits>
+#include "..\lib\SdFat\src\BufferedPrint.h"
 
 extern STM32RTC& rtc;
 
@@ -26,29 +27,17 @@ enum CSV_Header {
     can_raw_D1,
     can_raw_D0,
 
-    daq_susp_FL_acc_x,
-    daq_susp_FL_acc_y,
-    daq_susp_FL_acc_z,
-    daq_susp_FL_rpm,
-    daq_susp_FL_temp,
+    // daq_susp_FL_rpm,
+    // daq_susp_FL_temp,
     
-    daq_susp_FR_acc_x,
-    daq_susp_FR_acc_y,
-    daq_susp_FR_acc_z,
-    daq_susp_FR_rpm,
-    daq_susp_FR_temp,
+    // daq_susp_FR_rpm,
+    // daq_susp_FR_temp,
     
-    daq_susp_RL_acc_x,
-    daq_susp_RL_acc_y,
-    daq_susp_RL_acc_z,
-    daq_susp_RL_rpm,
-    daq_susp_RL_temp,
+    // daq_susp_RL_rpm,
+    // daq_susp_RL_temp,
     
-    daq_susp_RR_acc_x,
-    daq_susp_RR_acc_y,
-    daq_susp_RR_acc_z,
-    daq_susp_RR_rpm,
-    daq_susp_RR_temp,
+    // daq_susp_RR_rpm,
+    // daq_susp_RR_temp,
 
     // comment,
 
@@ -59,7 +48,7 @@ const char* csv_header(CSV_Header header) {
     switch(header) {
         case timestamp: return "time";
         case sn: return "sn";
-        case log_type: return "log type";
+        case log_type: return "type";
         
         case can_ID: return "can_ID";
         case can_DLC: return "can_DLC";
@@ -75,38 +64,27 @@ const char* csv_header(CSV_Header header) {
         case can_raw_D1: return "can_raw_D1";
         case can_raw_D0: return "can_raw_D0";
 
-        case daq_susp_FL_acc_x: return "daq_susp_FL_acc_x";
-        case daq_susp_FL_acc_y: return "daq_susp_FL_acc_y";
-        case daq_susp_FL_acc_z: return "daq_susp_FL_acc_z";
-        case daq_susp_FL_rpm: return "daq_susp_FL_rpm";
-        case daq_susp_FL_temp: return "daq_susp_FL_temp";
+        // case daq_susp_FL_rpm: return "daq_susp_FL_rpm";
+        // case daq_susp_FL_temp: return "daq_susp_FL_temp";
 
-        case daq_susp_FR_acc_x: return "daq_susp_FR_acc_x";
-        case daq_susp_FR_acc_y: return "daq_susp_FR_acc_y";
-        case daq_susp_FR_acc_z: return "daq_susp_FR_acc_z";
-        case daq_susp_FR_rpm: return "daq_susp_FR_rpm";
-        case daq_susp_FR_temp: return "daq_susp_FR_temp";
+        // case daq_susp_FR_rpm: return "daq_susp_FR_rpm";
+        // case daq_susp_FR_temp: return "daq_susp_FR_temp";
 
-        case daq_susp_RL_acc_x: return "daq_susp_RL_acc_x";
-        case daq_susp_RL_acc_y: return "daq_susp_RL_acc_y";
-        case daq_susp_RL_acc_z: return "daq_susp_RL_acc_z";
-        case daq_susp_RL_rpm: return "daq_susp_RL_rpm";
-        case daq_susp_RL_temp: return "daq_susp_RL_temp";
+        // case daq_susp_RL_rpm: return "daq_susp_RL_rpm";
+        // case daq_susp_RL_temp: return "daq_susp_RL_temp";
 
-        case daq_susp_RR_acc_x: return "daq_susp_RR_acc_x";
-        case daq_susp_RR_acc_y: return "daq_susp_RR_acc_y";
-        case daq_susp_RR_acc_z: return "daq_susp_RR_acc_z";
-        case daq_susp_RR_rpm: return "daq_susp_RR_rpm";
-        case daq_susp_RR_temp: return "daq_susp_RR_temp";
+        // case daq_susp_RR_rpm: return "daq_susp_RR_rpm";
+        // case daq_susp_RR_temp: return "daq_susp_RR_temp";
 
         // case comment: return "comment";
 
-        case LAST: return "";
+        case LAST: ;
+        default: return "";
     }
 }
 
 enum DataType {
-    Int, UInt8_T, UInt32_T, Float, Char_Ptr
+    Int, UInt8_T, UInt32_T, UInt32_T_Hex, Float, Char_Ptr
 };
 
 union DataUnion {
@@ -118,94 +96,147 @@ union DataUnion {
 };
 
 enum LogType {
-    CAN, DAQ, Err
+    CAN, GPS, DAQ, Radio, Err
 };
 
-extern File file;
+enum BPBase { B_DEC, B_HEX };
 
-template <typename WriteClass, uint8_t BUF_DIM>
-class DAQBufferedPrint: public BufferedPrint<WriteClass, BUF_DIM> {
+template <typename T>
+class has_sync {
 private:
-    bool write_enabled;
-    uint32_t writeclass_write_count;
+    template <typename U>
+    static auto test(int) -> decltype(std::declval<U>().sync(), std::true_type());
+
+    template <typename>
+    static std::false_type test(...);
 
 public:
-    bool sync() {
-        if (!write_enabled) {
-            return true;
-        }
+    static constexpr bool value = std::is_same<decltype(test<T>(0)), std::true_type>::value;
+};
+
+template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN = false, uint16_t WR_SYNC_CYCLE = 1>
+class BufferedPrintPlus: public BufferedPrint<WriteClass, BUF_DIM> {
+private:
+    WriteClass* m_wr;
+    bool write_enabled;
+    uint16_t writeclass_write_count = 0;
+    uint16_t writeclass_sync_count = 0;
+
+public:
+    bool sync() override {
+        if (!write_enabled) return true;
+
         bool r = BufferedPrint<WriteClass, BUF_DIM>::sync();
-        if (r) writeclass_write_count++;
+
+        if (WR_SYNC_EN) {
+            if (r) writeclass_write_count++;
+            if (writeclass_write_count >= WR_SYNC_CYCLE) {
+                syncV<WriteClass>();
+                writeclass_write_count = 0;
+            }
+        }
+
         return r;
     }
 
-    size_t write(const void* src, size_t n) {
-        if (!write_enabled) {
-            return n;
+    template <typename U>
+    void syncV() {
+        if constexpr (has_sync<U>::value) {
+          m_wr->sync();
+          writeclass_sync_count++;
         }
+    }
+
+    size_t write(const void* src, size_t n) override {
+        if (!write_enabled) return n;
+
         return BufferedPrint<WriteClass, BUF_DIM>::write(src, n);
     }
 
-    void enable_write(bool e) { write_enabled = e; }
+    template <typename Type>
+    size_t printFieldHex(Type n, char term) {
+        const uint8_t DIM = 13;
+        char buf[DIM];
+        char* str = buf + sizeof(buf);
 
-    explicit DAQBufferedPrint(WriteClass* wr, bool write_e = true):
-        BufferedPrint<WriteClass, BUF_DIM>(wr), write_enabled(write_e), writeclass_write_count(0) {}
+        if (term) {
+            *--str = term;
+            if (term == '\n') {
+                *--str = '\r';
+            }
+        }
+        Type p = n < 0 ? -n : n;
+        str = fmtHex(str, (uint32_t)p);
+        if (n < 0) {
+            *--str = '-';
+        }
+        return write(str, buf + sizeof(buf) - str);
+    }
 
-    uint32_t get_writeclass_write_count() { return writeclass_write_count; }
+    void begin(WriteClass* wr) {
+        m_wr = wr;
+        BufferedPrint<WriteClass, BUF_DIM>::begin(wr);
+    }
+
+    void enable_write(bool e = true) { write_enabled = e; }
+
+    uint16_t get_wr_sync_count() { return writeclass_sync_count; }
+
+    BufferedPrintPlus(bool write_e = true): BufferedPrint<WriteClass, BUF_DIM>(), m_wr(nullptr), write_enabled(write_e) {}
+
+    explicit BufferedPrintPlus(WriteClass* wr, bool write_e = true):
+        BufferedPrint<WriteClass, BUF_DIM>(wr), m_wr(wr), write_enabled(write_e) {}
 };
 
 struct CSV_Row {
 private:
     int front = 0;
-    CSV_Header headers[10];
-    DataType types[10];
-    DataUnion values[10];
-    bool organized = false;
+    uint8_t headers[CSV_Header::LAST] = {0};
+    DataType types[CSV_Header::LAST];
+    DataUnion values[CSV_Header::LAST];
+    int* organized_idx = nullptr;
+    bool organized = true;
 
     const CSV_Header no_fltr[1] = {CSV_Header::LAST};
 
 public:
     void append(CSV_Header header, int value) {
-        headers[front] = header;
-        types[front] = DataType::Int;
-        values[front].i = value;
+        headers[header] = 1;
+        types[header] = DataType::Int;
+        values[header].i = value;
         front++;
-        organized = false;
     }
 
     void append(CSV_Header header, uint8_t value) {
-        headers[front] = header;
-        types[front] = DataType::UInt8_T;
-        values[front].ui8 = value;
+        headers[header] = 1;
+        types[header] = DataType::UInt8_T;
+        values[header].ui8 = value;
         front++;
-        organized = false;
     }
 
-    void append(CSV_Header header, uint32_t value) {
-        headers[front] = header;
-        types[front] = DataType::UInt32_T;
+    void append(CSV_Header header, uint32_t value, BPBase b = B_DEC) {
+        headers[front] = 1;
+        if (b == B_DEC) types[front] = DataType::UInt32_T;
+        else if (b == B_HEX) types[front] = DataType::UInt32_T_Hex;
         values[front].ui32 = value;
         front++;
-        organized = false;
     }
 
     void append(CSV_Header header, float value) {
-        headers[front] = header;
-        types[front] = DataType::Float;
-        values[front].f = value;
+        headers[header] = 1;
+        types[header] = DataType::Float;
+        values[header].f = value;
         front++;
-        organized = false;
     }
 
     template <size_t N>
     void append(CSV_Header header, const char (&value)[N]) {
-        headers[front] = header;
-        types[front] = DataType::Char_Ptr;
+        headers[header] = 1;
+        types[header] = DataType::Char_Ptr;
         char* s = new char[N];
         strcpy(s, value);
-        values[front].s = s;
+        values[header].s = s;
         front++;
-        organized = false;
     }
 
     CSV_Row(uint32_t sn, LogType type) {
@@ -224,59 +255,49 @@ public:
         append(CSV_Header::log_type, type);
     }
 
-    void organize() { organized = true; }
-
-    template <typename WriteClass, uint8_t BUF_DIM>
-    void write_row(DAQBufferedPrint<WriteClass, BUF_DIM>& bp) {
-        write_row(bp, no_fltr);
+    template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE>
+    void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, bool with_header = false, bool aligned = true) {
+        write_row(bp, no_fltr, with_header, aligned);
     }
 
-    template <typename WriteClass, uint8_t BUF_DIM, size_t N>
-    void write_row(DAQBufferedPrint<WriteClass, BUF_DIM>& bp, CSV_Header (&filters)[N], char term = ',', bool with_header = false, bool aligned = true) {
-        if (!organized) organize();
+    template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE, size_t N>
+    void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, const CSV_Header (&filters)[N], bool with_header = false, bool aligned = true, char term = ',') {
 
         int last_col = 0;
         size_t filters_count = (N == 1 && filters[0] == CSV_Header::LAST) ? 0 : N;
         if (filters_count) {
-            for (int i = 0; i < front; i++) {
-                for (int j = 0; i < filters_count; j++) {
-                    if (headers[i] == filters[j]) {
-                        if (with_header) {
-                            bp.printField(csv_header(headers[i]), ' ');
-                        }
+            // for (int i = 0; i < front; i++) {
+            //     for (int j = 0; i < filters_count; j++) {
+            //         if (headers[i] == filters[j]) {
+            //             if (with_header) {
+            //                 bp.printField(csv_header(headers[i]), ' ');
+            //             }
 
-                        switch (types[i]) {
-                            case Int: { bp.printField(values[i].i, term); }
-                            case UInt8_T: { bp.printField(values[i].ui8, term); }
-                            case UInt32_T: { bp.printField(values[i].ui32, term); }
-                            case Float: { bp.printField(values[i].f, term); }
-                            case Char_Ptr: { bp.printField(values[i].s, term); }
-                            default: { bp.printField("NAN", term); };
-                        }
-                    }
-                }
-            }
+            //             switch (types[i]) {
+            //                 case Int: { bp.printField(values[i].i, term); }
+            //                 case UInt8_T: { bp.printField(values[i].ui8, term); }
+            //                 case UInt32_T: { bp.printField(values[i].ui32, term); }
+            //                 case Float: { bp.printField(values[i].f, term); }
+            //                 // case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); }
+            //                 default: { bp.printField("NAN", term); };
+            //             }
+            //         }
+            //     }
+            // }
         } else {
-            for (int i = 0; i < front; i++) {
-                if (aligned) {
-                    for (int j = last_col; j < headers[i]; j++) {
-                        bp.print(term);
+            for (int i = 0; i < CSV_Header::LAST; i++) {
+                if (headers[i] == 1) {
+                    if (with_header) bp.printField(csv_header((CSV_Header)i), ' ');
+                    switch (types[i]) {
+                        case Int: { bp.printField(values[i].i, term); break; }
+                        case UInt8_T: { bp.printField(values[i].ui8, term); break; }
+                        case UInt32_T: { bp.printField(values[i].ui32, term); break; }
+                        case UInt32_T_Hex: { bp.printFieldHex(values[i].ui32, term); break; }
+                        case Float: { bp.printField(values[i].f, term); break; }
+                        // case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); }
+                        default: { bp.printField("NAN", term); };
                     }
-                }
-                last_col = headers[i];
-
-                if (with_header) {
-                    bp.printField(csv_header(headers[i]), ' ');
-                }
-
-                switch (types[i]) {
-                    case Int: { bp.printField(values[i].i, term); }
-                    case UInt8_T: { bp.printField(values[i].ui8, term); }
-                    case UInt32_T: { bp.printField(values[i].ui32, term); }
-                    case Float: { bp.printField(values[i].f, term); }
-                    case Char_Ptr: { bp.printField(values[i].s, term); }
-                    default: { bp.printField("NAN", term); };
-                }
+                } else if (aligned) bp.print(term);
             }
         }
         bp.println();
@@ -290,4 +311,70 @@ public:
             }
         }   
     }
+
+    // static void organize(CSV_Header* h_list, int* indexes) {
+    //     if (indexes != nullptr) { delete[] organized_idx; }
+
+    //     organized_idx = new int[15];
+    //     for (int i = 0; i < front; i++) { organized_idx[i] = i; }
+    //     for (int i = 0; i < front - 1; ++i) {
+    //         for (int j = 0; j < front - i - 1; ++j) {
+    //             if (headers[j] > headers[j+1]) {
+    //                 int temp = headers[j];
+    //                 headers[j] = headers[j+1];
+    //                 headers[j+1] = temp;
+
+    //                 int tempIndex = organized_idx[j];
+    //                 organized_idx[j] = organized_idx[j+1];
+    //                 organized_idx[j+1] = tempIndex;
+    //             }
+    //         }
+    //     }
+    // }
 };
+
+// struct Timestamp {
+//     uint8_t month;
+//     uint8_t day;
+//     uint8_t hour;
+//     uint8_t min;
+//     uint8_t sec;
+
+//     template <typename WriteClass, uint8_t BUF_DIM>
+//     void to_csv_string(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
+//         bp.printField
+//     }
+// };
+
+// struct GPS_Log {
+//     double lat;
+//     double lng;
+//     double alt;
+// };
+
+// struct CAN_Log {
+//     Timestamp t;
+//     uint32_t id;
+//     uint8_t len;
+//     uint8_t data[8];
+// };
+
+// struct LogBlob {
+//     LogType type;
+//     Timestamp timestamp;
+//     union Blob {
+//         GPS_Log gps;
+//         CAN_Log can;
+//     };
+// };
+
+// template <typename WriteClass, uint8_t BUF_DIM>
+// void bpwrite_csv_line(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, LogBlob& blob) {
+//     CSV_Row
+//     blob.timestamp.to_csv_string(bp);
+//     switch (blob.type) {
+//         case LogType::GPS:
+
+//         case LogType::CAN:
+//     }
+// }
