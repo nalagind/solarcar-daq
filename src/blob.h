@@ -52,7 +52,7 @@ struct LogBlob {
     Timestamp timestamp;
     uint32_t sn;
     union {
-        GPS_Log gps;
+        GPS_Log gps_log;
         CAN_message_t can_rx_msg;
     };
 

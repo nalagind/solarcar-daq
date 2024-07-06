@@ -9,6 +9,8 @@
 #include "csv_logger.h"
 #include "blob.h"
 #include "sd_helper.h"
+#include "TinyGPSPlus.h"
+
 STM32RTC& rtc = STM32RTC::getInstance();
 
 STM32_CAN Can(CAN1, ALT);
@@ -19,11 +21,12 @@ SX1262 radio = new Module(PB3, PA15, PB4, PD2, SPI_3);
 
 SdFs SD;
 
-String can_record;
+TinyGPSPlus gps;
 
 SimpleCLI cli = setupCLI();
 Preferences pref;
 
+HardwareSerial Serial6(PC7, PC6);
 BufferedPrintPlus<Print, 1> sbp(&Serial);
 BufferedPrintPlus<FsFile, 255, true, 256> sdbp;
 
@@ -65,6 +68,8 @@ void setup() {
 
   sd_init(PC4, PA6, PA7, PA5);
 
+  Serial6.begin(9600);
+
   lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC);
   
   Serial.println("started");
@@ -102,8 +107,24 @@ void loop() {
 
     // LoRaTransmit(can_record);
     // FSK_Transmit(can_record);
-    record_sn++;
   }
+
+  while (Serial6.available()) {
+    gps.encode(Serial6.read());
+  }
+  if (gps.satellites.value() > 1 && gps.location.isValid()) {
+    LogBlob gps_blob(GPS);
+    gps_blob.gps_log = {
+      static_cast<float>(gps.location.lat()),
+      static_cast<float>(gps.location.lng()),
+      static_cast<int>(gps.location.age()),
+      static_cast<int>(gps.altitude.meters()),
+      static_cast<int>(gps.speed.kmph()),
+      static_cast<int>(gps.satellites.value())
+    };
+    sbp.println("gps fix");
+  }
+
   // if (count % 1000 == 0) sbp.println(count);
   // sdbp.printField(count++, '\n');
   // delay(5);
