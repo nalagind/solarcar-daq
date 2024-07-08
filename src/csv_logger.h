@@ -125,11 +125,13 @@ public:
     static constexpr bool value = std::is_same<decltype(test<T>(0)), std::true_type>::value;
 };
 
-template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN = false, uint16_t WR_SYNC_CYCLE = 1>
+template <typename WriteClass, uint8_t BUF_DIM>
 class BufferedPrintPlus: public BufferedPrint<WriteClass, BUF_DIM> {
 private:
     WriteClass* m_wr;
     bool write_enabled = true;
+    bool writeclass_sync_enabled = false;
+    uint16_t writeclass_sync_cycle;
     uint16_t writeclass_write_count = 0;
     uint16_t writeclass_sync_count = 0;
 
@@ -139,9 +141,9 @@ public:
 
         bool r = BufferedPrint<WriteClass, BUF_DIM>::sync();
 
-        if (WR_SYNC_EN) {
+        if (writeclass_sync_enabled) {
             if (r) writeclass_write_count++;
-            if (writeclass_write_count >= WR_SYNC_CYCLE) {
+            if (writeclass_write_count >= writeclass_sync_cycle) {
                 syncV<WriteClass>();
                 writeclass_write_count = 0;
             }
@@ -191,12 +193,28 @@ public:
 
     void enable_write(bool e = true) { write_enabled = e; }
 
+    void config_sync(bool sync_e, uint16_t sync_c) {
+        writeclass_sync_enabled = sync_e;
+        writeclass_sync_cycle = sync_c;
+    }
+
     uint16_t get_wr_sync_count() { return writeclass_sync_count; }
 
-    BufferedPrintPlus(bool write_e = true): BufferedPrint<WriteClass, BUF_DIM>(), m_wr(nullptr), write_enabled(write_e) {}
+    BufferedPrintPlus(bool sync_e = false, uint16_t sync_c = 1, bool write_e = true):
+        BufferedPrint<WriteClass, BUF_DIM>(),
+        m_wr(nullptr),
+        writeclass_sync_enabled{sync_e},
+        writeclass_sync_cycle{sync_c},
+        write_enabled(write_e) 
+    {}
 
-    explicit BufferedPrintPlus(WriteClass* wr, bool write_e = true):
-        BufferedPrint<WriteClass, BUF_DIM>(wr), m_wr(wr), write_enabled(write_e) {}
+    explicit BufferedPrintPlus(WriteClass* wr, bool sync_e = false, uint16_t sync_c = 1, bool write_e = true):
+        BufferedPrint<WriteClass, BUF_DIM>(wr),
+        m_wr(wr),
+        writeclass_sync_enabled{sync_e},
+        writeclass_sync_cycle{sync_c},
+        write_enabled(write_e)
+    {}
 
     friend class CSV_Line;
 };
@@ -259,13 +277,13 @@ public:
         front++;
     }
 
-    template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE>
-    void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, bool with_header = false, bool aligned = true) {
+    template <typename WriteClass, uint8_t BUF_DIM>
+    void write_row(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, bool with_header = false, bool aligned = true) {
         write_row(bp, no_fltr, with_header, aligned);
     }
 
-    template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE, size_t N>
-    void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, const CSV_Header (&filters)[N], bool with_header = false, bool aligned = true, char term = ',') {
+    template <typename WriteClass, uint8_t BUF_DIM, size_t N>
+    void write_row(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, const CSV_Header (&filters)[N], bool with_header = false, bool aligned = true, char term = ',') {
         if (bp.write_enabled == false) return;
         
         bool filterred = (N != 1 && filters[0] != LAST);

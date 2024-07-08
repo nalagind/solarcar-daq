@@ -153,7 +153,7 @@ DmaSpi dmaSpi;
 extern SdFs SD;
 FsFile file;
 
-extern BufferedPrintPlus<FsFile, 255, true, 256> sdbp;
+extern BufferedPrintPlus<FsFile, 255> sdbp;
 
 bool appendFile(const char *filename, const char *message) {
   file = SD.open(filename, FILE_WRITE); //FILEWRITE includes flags for creating file, appending, and R&W
@@ -214,8 +214,8 @@ bool sd_init(uint32_t chipSelectPin = PC4, uint32_t miso = PA6, uint32_t mosi = 
   return true;
 }
 
-template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE>
-void write_header(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp) {
+template <typename WriteClass, uint8_t BUF_DIM>
+void write_header(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
   CSV_Line l;
   for (int i = 0; i < CSV_Header::LAST; i++) {
     CSV_Header h = static_cast<CSV_Header>(i);
