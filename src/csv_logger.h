@@ -16,14 +16,22 @@ enum CSV_Header {
     
     can_node_name,
 
-    can_raw_D7,
-    can_raw_D6,
-    can_raw_D5,
-    can_raw_D4,
-    can_raw_D3,
-    can_raw_D2,
-    can_raw_D1,
     can_raw_D0,
+    can_raw_D1,
+    can_raw_D2,
+    can_raw_D3,
+    can_raw_D4,
+    can_raw_D5,
+    can_raw_D6,
+    can_raw_D7,
+
+    gps_sat,
+    gps_hdop,
+    gps_lat,
+    gps_lng,
+    gps_loc_age,
+    gps_alt_m,
+    gps_spd_kmph,
 
     // daq_susp_FL_rpm,
     // daq_susp_FL_temp,
@@ -62,6 +70,14 @@ const char* csv_header(CSV_Header header) {
         case can_raw_D2: return "can_raw_D2";
         case can_raw_D1: return "can_raw_D1";
         case can_raw_D0: return "can_raw_D0";
+
+        case gps_sat: return "gps_satellites";
+        case gps_hdop: return "gps_hdop";
+        case gps_lat: return "latitude";
+        case gps_lng: return "longitude";
+        case gps_loc_age: return "gps_fix_age";
+        case gps_alt_m: return "gps_altitude_m";
+        case gps_spd_kmph: return "gps_speed_kmph";
 
         // case daq_susp_FL_rpm: return "daq_susp_FL_rpm";
         // case daq_susp_FL_temp: return "daq_susp_FL_temp";
@@ -210,10 +226,10 @@ public:
     }
 
     void append(CSV_Header header, uint32_t value, BPBase b = B_DEC) {
-        headers[front] = 1;
-        if (b == B_DEC) types[front] = DataType::UInt32_T;
-        else if (b == B_HEX) types[front] = DataType::UInt32_T_Hex;
-        values[front].ui32 = value;
+        headers[header] = 1;
+        if (b == B_DEC) types[header] = DataType::UInt32_T;
+        else if (b == B_HEX) types[header] = DataType::UInt32_T_Hex;
+        values[header].ui32 = value;
         front++;
     }
 
@@ -229,6 +245,15 @@ public:
         headers[header] = 1;
         types[header] = DataType::Char_Ptr;
         char* s = new char[N];
+        strcpy(s, value);
+        values[header].s = s;
+        front++;
+    }
+
+    void append(CSV_Header header, const char* value) {
+        headers[header] = 1;
+        types[header] = DataType::Char_Ptr;
+        char* s = new char[strlen(value) + 1];
         strcpy(s, value);
         values[header].s = s;
         front++;
@@ -263,6 +288,23 @@ public:
             //         }
             //     }
             // }
+            for (int j = 0; j < N; j++) {
+                for (int i = 0; i < CSV_Header::LAST; i++) {
+                    if (headers[i] == 1) {
+                        if (with_header) bp.printField(csv_header((CSV_Header)i), ' ');
+                        switch (types[i]) {
+                            case Int: { bp.printField(values[i].i, term); break; }
+                            case UInt8_T: { bp.printField(values[i].ui8, term); break; }
+                            case UInt32_T: { bp.printField(values[i].ui32, term); break; }
+                            case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[i].ui32, term); break; }
+                            case Float: { bp.printField(values[i].f, term); break; }
+                            case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
+                            default: { bp.printField("NAN", term); };
+                        }
+                        if (with_header) bp.print(' ');
+                    } else if (aligned) bp.print(term);
+                }
+            }
         } else {
             for (int i = 0; i < CSV_Header::LAST; i++) {
                 if (headers[i] == 1) {
@@ -271,11 +313,12 @@ public:
                         case Int: { bp.printField(values[i].i, term); break; }
                         case UInt8_T: { bp.printField(values[i].ui8, term); break; }
                         case UInt32_T: { bp.printField(values[i].ui32, term); break; }
-                        case UInt32_T_Hex: { bp.printFieldHex(values[i].ui32, term); break; }
+                        case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[i].ui32, term); break; }
                         case Float: { bp.printField(values[i].f, term); break; }
                         case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
                         default: { bp.printField("NAN", term); };
                     }
+                    if (with_header) bp.print(' ');
                 } else if (aligned) bp.print(term);
             }
         }
@@ -293,23 +336,8 @@ public:
         }   
     }
 
-    // static void organize(CSV_Header* h_list, int* indexes) {
-    //     if (indexes != nullptr) { delete[] organized_idx; }
-
-    //     organized_idx = new int[15];
-    //     for (int i = 0; i < front; i++) { organized_idx[i] = i; }
-    //     for (int i = 0; i < front - 1; ++i) {
-    //         for (int j = 0; j < front - i - 1; ++j) {
-    //             if (headers[j] > headers[j+1]) {
-    //                 int temp = headers[j];
-    //                 headers[j] = headers[j+1];
-    //                 headers[j+1] = temp;
-
-    //                 int tempIndex = organized_idx[j];
-    //                 organized_idx[j] = organized_idx[j+1];
-    //                 organized_idx[j+1] = tempIndex;
-    //             }
-    //         }
-    //     }
-    // }
+    static std::vector<CSV_Header> make_filter(std::vector<CSV_Header> v) {
+        std::sort(v.begin(), v.end());
+        return v;
+    }
 };

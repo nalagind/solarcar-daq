@@ -14,12 +14,13 @@
 #define ARG_FILE_OVERWRITE "overwrite,ow"
 #define ARG_STARTUP_DELAY "startup,delay"
 // #define ARG_FILENAME "filename,fn"
-#define ARG_YEAR "year,yr"
-#define ARG_MONTH "month,mo"
-#define ARG_DAY "day,day"
-#define ARG_HOUR "hour,hr"
-#define ARG_MIN "minute,min"
-#define ARG_SEC "second,sec"
+// #define ARG_YEAR "year,yr"
+// #define ARG_MONTH "month,mo"
+// #define ARG_DAY "day,day"
+// #define ARG_HOUR "hour,hr"
+// #define ARG_MIN "minute,min"
+// #define ARG_SEC "second,sec"
+#define ARG_TIMEZONE_OFFSET "timezone,offst"
 #define ARG_SERIAL_PRINT "serial,srl"
 #define ARG_BUFFEREDPRINT_BUFDIM "sdbp dim,bp"
 #define ARG_BUFFEREDPRINT_SYNCCYCLE "sdbp sync,sync"
@@ -47,6 +48,7 @@ struct Preferences {
   uint16_t sdbp_dim;
   uint16_t sdbp_sync;
   // char filename[32];
+  int8_t timezone_offset;
 };
 
 extern OperatingMode currentMode;
@@ -92,6 +94,7 @@ void configCmdCallback(cmd* c) {
   uint8_t sbp_enable = pref.sbp_enable;
   uint16_t sdbp_dim = pref.sdbp_dim;
   uint16_t sdbp_sync = pref.sdbp_sync;
+  int8_t timezone_offset = pref.timezone_offset;
   // char filename[32];
   // strcpy(filename, pref.filename);
 
@@ -166,8 +169,12 @@ void configCmdCallback(cmd* c) {
         Serial.println(sdbp_sync);
       }
       
-      if (strstr(argn, "year") || strstr(argn, "month") || strstr(argn, "day") || strstr(argn, "hour") || strstr(argn, "minute") || strstr(argn, "second") != NULL) {
-        Serial.println();
+      // if (strstr(argn, "year") || strstr(argn, "month") || strstr(argn, "day") || strstr(argn, "hour") || strstr(argn, "minute") || strstr(argn, "second") != NULL) {
+      //   Serial.println();
+      // }
+
+      if (strstr(argn, "offst") != NULL) {
+        Serial.println(timezone_offset);
       }
     }
     Serial.print("\n\n");
@@ -232,28 +239,32 @@ void configCmdCallback(cmd* c) {
         pref.sdbp_sync = value.toInt();
       }
 
-      if (strstr(argn, "year") != NULL) {
-        rtc.setYear(value.toInt() - 2000);
-      }
+      // if (strstr(argn, "year") != NULL) {
+      //   rtc.setYear(value.toInt() - 2000);
+      // }
 
-      if (strstr(argn, "month") != NULL) {
-        rtc.setMonth(value.toInt());
-      }
+      // if (strstr(argn, "month") != NULL) {
+      //   rtc.setMonth(value.toInt());
+      // }
 
-      if (strstr(argn, "day") != NULL) {
-        rtc.setDay(value.toInt());
-      }
+      // if (strstr(argn, "day") != NULL) {
+      //   rtc.setDay(value.toInt());
+      // }
 
-      if (strstr(argn, "hour") != NULL) {
-        rtc.setHours(value.toInt());
-      }
+      // if (strstr(argn, "hour") != NULL) {
+      //   rtc.setHours(value.toInt());
+      // }
 
-      if (strstr(argn, "minute") != NULL) {
-        rtc.setMinutes(value.toInt());
-      }
+      // if (strstr(argn, "minute") != NULL) {
+      //   rtc.setMinutes(value.toInt());
+      // }
 
-      if (strstr(argn, "second") != NULL) {
-        rtc.setSeconds(value.toInt());
+      // if (strstr(argn, "second") != NULL) {
+      //   rtc.setSeconds(value.toInt());
+      // }
+
+      if (strstr(argn, "offst") != NULL) {
+        pref.timezone_offset = value.toInt() % 24;
       }
     }
   }
@@ -302,12 +313,13 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_STARTUP_DELAY, NOENTRY);
   config.addArg(ARG_BUFFEREDPRINT_BUFDIM, NOENTRY);
   config.addArg(ARG_BUFFEREDPRINT_SYNCCYCLE, NOENTRY);
-  config.addArg(ARG_YEAR, NOENTRY);
-  config.addArg(ARG_MONTH, NOENTRY);
-  config.addArg(ARG_DAY, NOENTRY);
-  config.addArg(ARG_HOUR, NOENTRY);
-  config.addArg(ARG_MIN, NOENTRY);
-  config.addArg(ARG_SEC, NOENTRY);
+  // config.addArg(ARG_YEAR, NOENTRY);
+  // config.addArg(ARG_MONTH, NOENTRY);
+  // config.addArg(ARG_DAY, NOENTRY);
+  // config.addArg(ARG_HOUR, NOENTRY);
+  // config.addArg(ARG_MIN, NOENTRY);
+  // config.addArg(ARG_SEC, NOENTRY);
+  config.addArg(ARG_TIMEZONE_OFFSET, NOENTRY);
 
   config.addFlagArg(ARG_LISTCONFIG);
   config.addFlagArg("restart");

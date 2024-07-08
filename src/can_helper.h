@@ -24,7 +24,7 @@ void read_generic(const CAN_message_t& msg, CSV_Line& logger) {
   if (msg.flags.remote == true) logger.append(can_remote_request, 1);
   for (int i = 0; i < msg.len; i++) {
     if (msg.len > 8) break;
-    logger.append(static_cast<CSV_Header>(static_cast<int>(CSV_Header::can_raw_D0) + i), msg.buf[i], B_HEX);
+    logger.append(static_cast<CSV_Header>((CSV_Header::can_raw_D0) + i), msg.buf[i], B_HEX);
   }
 }
 

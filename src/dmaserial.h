@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Arduino.h>
 #include <HardwareSerial.h>
 
@@ -71,7 +73,7 @@ class DmaSerial: public HardwareSerial {
             break;
         }
 
-        uart_init(&_serial, (uint32_t)115200, databits, parity, stopbits);
+        uart_init(&_serial, (uint32_t)baud, databits, parity, stopbits);
 
         __HAL_RCC_DMA1_CLK_ENABLE();
 

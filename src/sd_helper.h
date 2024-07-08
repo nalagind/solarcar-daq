@@ -204,7 +204,7 @@ bool sd_init(uint32_t chipSelectPin = PC4, uint32_t miso = PA6, uint32_t mosi = 
   }
   sdbp.begin(&file);
 
-  if (!file.println("DAQDAQDAQDAQDAQDAQDAQDAQ")) {
+  if (!file.println("")) {
     Serial.println("Writing to file failed!");
     return false;
   }
@@ -212,4 +212,14 @@ bool sd_init(uint32_t chipSelectPin = PC4, uint32_t miso = PA6, uint32_t mosi = 
 
   Serial.println("...and mounted!");
   return true;
+}
+
+template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE>
+void write_header(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp) {
+  CSV_Line l;
+  for (int i = 0; i < CSV_Header::LAST; i++) {
+    CSV_Header h = static_cast<CSV_Header>(i);
+    l.append(h, csv_header(h));
+  }
+  l.write_row(bp);
 }
