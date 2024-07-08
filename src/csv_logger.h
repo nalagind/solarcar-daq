@@ -129,7 +129,7 @@ template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN = false, uint16_
 class BufferedPrintPlus: public BufferedPrint<WriteClass, BUF_DIM> {
 private:
     WriteClass* m_wr;
-    bool write_enabled;
+    bool write_enabled = true;
     uint16_t writeclass_write_count = 0;
     uint16_t writeclass_sync_count = 0;
 
@@ -270,9 +270,10 @@ public:
         
         bool filterred = (N != 1 && filters[0] != LAST);
         int max = filterred ? N : LAST;
+        int _front = front;
         
         for (int j = 0; j < max; j++) {
-            if (front <= 0) break;
+            if (_front <= 0) break;
             int h = filterred ? filters[j] : j;
 
             if (headers[h] == 1) {
@@ -287,7 +288,7 @@ public:
                     default: { bp.printField("NAN", term); };
                 }
                 if (with_header) bp.print(' ');
-                front--;
+                _front--;
             } else if (!filterred && aligned) bp.print(term);
         }
         bp.println();

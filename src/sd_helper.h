@@ -222,4 +222,5 @@ void write_header(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYC
     l.append(h, csv_header(h));
   }
   l.write_row(bp);
+  // bp.template syncV<WriteClass>();
 }

@@ -31,20 +31,15 @@ BufferedPrintPlus<Print, 1> sbp(&Serial);
 BufferedPrintPlus<Print, 1> sbp2(&Serial);
 BufferedPrintPlus<FsFile, 255, true, 256> sdbp;
 
-uint32_t count = 0;
 uint32_t t = 0;
-volatile bool set_time = false;
 bool real_time = false;
 uint8_t second;
 
-CSV_Header filter[] = {can_ID, sn};
+CSV_Header filter[] = {gps_spd_kmph, can_ID, sn, timestamp};
 
 void pps_callback() {
   digitalToggle(PB6);
-  if (set_time == true) {
-    rtc.setSeconds((second + 1) % 60);
-    set_time = false;
-  }
+  rtc.setSeconds((second + 1) % 60);
 }
 
 void setup() {
@@ -95,6 +90,7 @@ void setup() {
 
   sbp.enable_write(pref.sbp_enable == 1);
   sbp.println("ok");
+  sbp2.enable_write(false);
   CSV_Line::make_filter(filter);
 }
 
@@ -108,6 +104,7 @@ void loop() {
     // logger.append(CSV_Header::can_ID, CAN_RX_msg.id);
     log.to_csv_line(logger);
     logger.write_row(sbp, filter, true, false);
+    logger.write_row(sbp2, true, false);
     logger.write_row(sdbp);
     sbp.println();
     
@@ -132,15 +129,16 @@ void loop() {
   }
   if (millis() - t > 1000) {
     if (gps.satellites.value() > 1 && gps.location.isValid()) {
-      if (real_time == false && gps.time.isValid()) {
-        set_time = true;
-        rtc.setYear(gps.date.year() - 2000);
-        rtc.setMonth(gps.date.month());
-        rtc.setDay(gps.date.day());
-        rtc.setHours((gps.time.hour() + pref.timezone_offset) % 24);
-        rtc.setMinutes(gps.time.minute());
+      if (gps.time.isValid()) {
+        if (real_time == false) {
+          rtc.setYear(gps.date.year() - 2000);
+          rtc.setMonth(gps.date.month());
+          rtc.setDay(gps.date.day());
+          rtc.setHours((gps.time.hour() + pref.timezone_offset) % 24);
+          rtc.setMinutes(gps.time.minute());
+          real_time = true;
+        }
         second = gps.time.second();
-        real_time = true;
       }
 
       LogBlob gps_blob(GPS);

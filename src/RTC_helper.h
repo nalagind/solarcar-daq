@@ -1,5 +1,7 @@
 #pragma once
 #include <STM32RTC.h>
+#include "CLICommands.h"
+#include "TinyGPSPlus.h"
 
 /* Get the rtc object */
 extern STM32RTC& rtc;
@@ -34,11 +36,6 @@ void alarmMatch(void *data) {
   UNUSED(data);
   Serial.println("Alarm Match!");
 }
-
-void getTimeStamp(char* buf) {
-  sprintf(buf, "%04d/%02d/%02d %02d:%02d:%02d", rtc.getYear() + 2000, rtc.getMonth(), rtc.getDay(), rtc.getHours(), rtc.getMinutes(), rtc.getSeconds());
-}
-
 
 void stopWatch(int sec){
   rtc.attachSecondsInterrupt(alarmMatch);
