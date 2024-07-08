@@ -28,6 +28,7 @@ Preferences pref;
 
 HardwareSerial SerialGPS(PA3, PA2);
 BufferedPrintPlus<Print, 1> sbp(&Serial);
+BufferedPrintPlus<Print, 1> sbp2(&Serial);
 BufferedPrintPlus<FsFile, 255, true, 256> sdbp;
 
 uint32_t count = 0;
@@ -35,6 +36,8 @@ uint32_t t = 0;
 volatile bool set_time = false;
 bool real_time = false;
 uint8_t second;
+
+CSV_Header filter[] = {can_ID, sn};
 
 void pps_callback() {
   digitalToggle(PB6);
@@ -92,11 +95,11 @@ void setup() {
 
   sbp.enable_write(pref.sbp_enable == 1);
   sbp.println("ok");
+  CSV_Line::make_filter(filter);
 }
 
 void loop() {
   if (Can.read(CAN_RX_msg)) {
-    sbp.println("can msg");
     CSV_Line logger;
     LogBlob log(CAN);
     log.can_rx_msg = CAN_RX_msg;
@@ -104,7 +107,7 @@ void loop() {
     // CSV_Header descp_req[] = {can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
     // logger.append(CSV_Header::can_ID, CAN_RX_msg.id);
     log.to_csv_line(logger);
-    logger.write_row(sbp, true, false);
+    logger.write_row(sbp, filter, true, false);
     logger.write_row(sdbp);
     sbp.println();
     

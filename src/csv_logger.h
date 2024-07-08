@@ -266,62 +266,42 @@ public:
 
     template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE, size_t N>
     void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, const CSV_Header (&filters)[N], bool with_header = false, bool aligned = true, char term = ',') {
-
-        int last_col = 0;
-        size_t filters_count = (N == 1 && filters[0] == CSV_Header::LAST) ? 0 : N;
-        if (filters_count) {
-            // for (int i = 0; i < front; i++) {
-            //     for (int j = 0; i < filters_count; j++) {
-            //         if (headers[i] == filters[j]) {
-            //             if (with_header) {
-            //                 bp.printField(csv_header(headers[i]), ' ');
-            //             }
-
-            //             switch (types[i]) {
-            //                 case Int: { bp.printField(values[i].i, term); }
-            //                 case UInt8_T: { bp.printField(values[i].ui8, term); }
-            //                 case UInt32_T: { bp.printField(values[i].ui32, term); }
-            //                 case Float: { bp.printField(values[i].f, term); }
-            //                 // case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); }
-            //                 default: { bp.printField("NAN", term); };
-            //             }
-            //         }
-            //     }
-            // }
-            for (int j = 0; j < N; j++) {
-                for (int i = 0; i < CSV_Header::LAST; i++) {
-                    if (headers[i] == 1) {
-                        if (with_header) bp.printField(csv_header((CSV_Header)i), ' ');
-                        switch (types[i]) {
-                            case Int: { bp.printField(values[i].i, term); break; }
-                            case UInt8_T: { bp.printField(values[i].ui8, term); break; }
-                            case UInt32_T: { bp.printField(values[i].ui32, term); break; }
-                            case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[i].ui32, term); break; }
-                            case Float: { bp.printField(values[i].f, term); break; }
-                            case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
-                            default: { bp.printField("NAN", term); };
-                        }
-                        if (with_header) bp.print(' ');
-                    } else if (aligned) bp.print(term);
+        bool filterred = (N != 1 && filters[0] != LAST);
+        int max = filterred ? N : LAST;
+        
+        for (int j = 0; j < max; j++) {
+            int h = filterred ? filters[j] : j;
+            if (headers[h] == 1) {
+                if (with_header) bp.printField(csv_header((CSV_Header)h), ' ');
+                switch (types[h]) {
+                    case Int: { bp.printField(values[h].i, term); break; }
+                    case UInt8_T: { bp.printField(values[h].ui8, term); break; }
+                    case UInt32_T: { bp.printField(values[h].ui32, term); break; }
+                    case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[h].ui32, term); break; }
+                    case Float: { bp.printField(values[h].f, term); break; }
+                    case Char_Ptr: { bp.printField(const_cast<const char*>(values[h].s), term); break; }
+                    default: { bp.printField("NAN", term); };
                 }
-            }
-        } else {
-            for (int i = 0; i < CSV_Header::LAST; i++) {
-                if (headers[i] == 1) {
-                    if (with_header) bp.printField(csv_header((CSV_Header)i), ' ');
-                    switch (types[i]) {
-                        case Int: { bp.printField(values[i].i, term); break; }
-                        case UInt8_T: { bp.printField(values[i].ui8, term); break; }
-                        case UInt32_T: { bp.printField(values[i].ui32, term); break; }
-                        case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[i].ui32, term); break; }
-                        case Float: { bp.printField(values[i].f, term); break; }
-                        case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
-                        default: { bp.printField("NAN", term); };
-                    }
-                    if (with_header) bp.print(' ');
-                } else if (aligned) bp.print(term);
-            }
+                if (with_header) bp.print(' ');
+            } else if (!filterred && aligned) bp.print(term);
         }
+        // } else {
+        //     for (int i = 0; i < CSV_Header::LAST; i++) {
+        //         if (headers[i] == 1) {
+        //             if (with_header) bp.printField(csv_header((CSV_Header)i), ' ');
+        //             switch (types[i]) {
+        //                 case Int: { bp.printField(values[i].i, term); break; }
+        //                 case UInt8_T: { bp.printField(values[i].ui8, term); break; }
+        //                 case UInt32_T: { bp.printField(values[i].ui32, term); break; }
+        //                 case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[i].ui32, term); break; }
+        //                 case Float: { bp.printField(values[i].f, term); break; }
+        //                 case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
+        //                 default: { bp.printField("NAN", term); };
+        //             }
+        //             if (with_header) bp.print(' ');
+        //         } else if (aligned) bp.print(term);
+        //     }
+        // }
         bp.println();
     }
 
@@ -336,8 +316,8 @@ public:
         }   
     }
 
-    static std::vector<CSV_Header> make_filter(std::vector<CSV_Header> v) {
-        std::sort(v.begin(), v.end());
-        return v;
+    template <size_t N>
+    static void make_filter(CSV_Header (&filters)[N]) {
+        std::sort(filters, filters + N);
     }
 };
