@@ -197,6 +197,8 @@ public:
 
     explicit BufferedPrintPlus(WriteClass* wr, bool write_e = true):
         BufferedPrint<WriteClass, BUF_DIM>(wr), m_wr(wr), write_enabled(write_e) {}
+
+    friend class CSV_Line;
 };
 
 struct CSV_Line {
@@ -205,8 +207,6 @@ private:
     uint8_t headers[CSV_Header::LAST] = {0};
     DataType types[CSV_Header::LAST];
     DataUnion values[CSV_Header::LAST];
-    int* organized_idx = nullptr;
-    bool organized = true;
 
     const CSV_Header no_fltr[1] = {CSV_Header::LAST};
 
@@ -266,11 +266,15 @@ public:
 
     template <typename WriteClass, uint8_t BUF_DIM, bool WR_SYNC_EN, uint16_t WR_SYNC_CYCLE, size_t N>
     void write_row(BufferedPrintPlus<WriteClass, BUF_DIM, WR_SYNC_EN, WR_SYNC_CYCLE>& bp, const CSV_Header (&filters)[N], bool with_header = false, bool aligned = true, char term = ',') {
+        if (bp.write_enabled == false) return;
+        
         bool filterred = (N != 1 && filters[0] != LAST);
         int max = filterred ? N : LAST;
         
         for (int j = 0; j < max; j++) {
+            if (front <= 0) break;
             int h = filterred ? filters[j] : j;
+
             if (headers[h] == 1) {
                 if (with_header) bp.printField(csv_header((CSV_Header)h), ' ');
                 switch (types[h]) {
@@ -283,25 +287,9 @@ public:
                     default: { bp.printField("NAN", term); };
                 }
                 if (with_header) bp.print(' ');
+                front--;
             } else if (!filterred && aligned) bp.print(term);
         }
-        // } else {
-        //     for (int i = 0; i < CSV_Header::LAST; i++) {
-        //         if (headers[i] == 1) {
-        //             if (with_header) bp.printField(csv_header((CSV_Header)i), ' ');
-        //             switch (types[i]) {
-        //                 case Int: { bp.printField(values[i].i, term); break; }
-        //                 case UInt8_T: { bp.printField(values[i].ui8, term); break; }
-        //                 case UInt32_T: { bp.printField(values[i].ui32, term); break; }
-        //                 case UInt32_T_Hex: { bp.print("0x"); bp.printFieldHex(values[i].ui32, term); break; }
-        //                 case Float: { bp.printField(values[i].f, term); break; }
-        //                 case Char_Ptr: { bp.printField(const_cast<const char*>(values[i].s), term); break; }
-        //                 default: { bp.printField("NAN", term); };
-        //             }
-        //             if (with_header) bp.print(' ');
-        //         } else if (aligned) bp.print(term);
-        //     }
-        // }
         bp.println();
     }
 
