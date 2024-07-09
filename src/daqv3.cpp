@@ -30,11 +30,13 @@ HardwareSerial SerialGPS(PA3, PA2);
 BufferedPrintPlus<Print, 1> sbp(&Serial);
 BufferedPrintPlus<Print, 1> sbp2(&Serial);
 BufferedPrintPlus<FsFile, 255> sdbp;
+BufferedPrintPlus<FsFile, 255> binbp;
 
 uint32_t t = 0;
 bool real_time = false;
 volatile bool set_time = false;
 uint8_t second;
+OperatingMode op_mode = SOLAR_CAR;
 
 CSV_Header filter[] = {gps_spd_kmph, can_ID, sn, timestamp};
 
@@ -81,12 +83,23 @@ void setup() {
       Serial.print(" ");
       delay(5);
     }
+
+    if (op_mode == READ_LOG) {
+      blob_read_bin(sbp2);
+      op_mode = SOLAR_CAR;
+    }
   }
 
   Can.begin();
   Can.setBaudRate(pref.can_rate * 1000);
 
   sd_init(PC4, PA6, PA7, PA5);
+  if (file_open(file_bin, FILE_OVERWRITE, "daq.bin")) Serial.println("bin file ok");
+  sdbp.begin(&file);
+  binbp.begin(&file_bin);
+  file.sync();
+  file_bin.sync();
+  
   write_header(sdbp);
 
   SerialGPS.begin(9600);
@@ -99,6 +112,7 @@ void setup() {
   sbp.println("ok");
   sbp2.enable_write(false);
   sdbp.config_sync(true, pref.sdbp_sync);
+  binbp.config_sync(true, pref.sdbp_sync);
   CSV_Line::make_filter(filter);
 }
 
@@ -107,13 +121,11 @@ void loop() {
     CSV_Line logger;
     LogBlob log(CAN);
     log.can_rx_msg = CAN_RX_msg;
-    // process_CAN_msg(CAN_RX_msg, logger);
-    // CSV_Header descp_req[] = {can_ID, daq_susp_FL_acc_x, daq_susp_FL_acc_y, daq_susp_FL_acc_z};
-    // logger.append(CSV_Header::can_ID, CAN_RX_msg.id);
     log.to_csv_line(logger);
     logger.write_row(sbp, filter, true, false);
     logger.write_row(sbp2, true, false);
     logger.write_row(sdbp);
+    log.write_bin(binbp);
     sbp.println();
     
     // if (pref.file_overwrite) {
@@ -165,6 +177,7 @@ void loop() {
       gps_blob.to_csv_line(l);
       l.write_row(sbp, true, false);
       l.write_row(sdbp);
+      gps_blob.write_bin(binbp);
       sbp.println();
     }
     

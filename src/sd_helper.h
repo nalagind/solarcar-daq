@@ -152,6 +152,7 @@ DmaSpi dmaSpi;
 
 extern SdFs SD;
 FsFile file;
+FsFile file_bin;
 
 extern BufferedPrintPlus<FsFile, 255> sdbp;
 
@@ -214,6 +215,53 @@ bool sd_init(uint32_t chipSelectPin = PC4, uint32_t miso = PA6, uint32_t mosi = 
   return true;
 }
 
+#define FILE_OVERWRITE (O_RDWR | O_CREAT | O_TRUNC)
+
+bool sd_begin (
+  uint32_t cs, 
+  uint32_t miso,
+  uint32_t mosi,
+  uint32_t sclk)
+{
+  SPI.setMISO(miso); //PA6
+  SPI.setMOSI(mosi); //PA7
+  SPI.setSCLK(sclk); //PA5
+
+  if (!SD.begin(SdSpiConfig(cs, DEDICATED_SPI, SPI_CLOCK, &dmaSpi))) { //PC4
+    Serial.println("SD not found!");
+    return false;
+  }
+  Serial.print("SD found...");
+  return true;
+}
+
+bool file_open (
+  FsFile& file,
+  oflag_t oflag = O_RDWR,
+  const char *filename = "daq.csv")
+{
+  if (!file.open(filename, oflag)) {
+    Serial.println("failed to open file");
+    return false;
+  }
+  Serial.println("and mounted!");
+  return true;
+}
+
+bool sd_open (
+  uint32_t cs, 
+  uint32_t miso, 
+  uint32_t mosi, 
+  uint32_t sclk, 
+  FsFile& file,
+  oflag_t oflag = O_RDWR,
+  const char *filename = "daq.csv")
+{
+  if (!sd_begin(cs, miso, mosi, sclk)) return false;
+  if (!file_open(file, oflag, filename)) return false;
+  return true;
+}
+
 template <typename WriteClass, uint8_t BUF_DIM>
 void write_header(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
   CSV_Line l;
@@ -223,4 +271,15 @@ void write_header(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
   }
   l.write_row(bp);
   // bp.template syncV<WriteClass>();
+}
+
+int read_file(FsFile& file, void* buf, size_t count, const char* filename = "daq.csv") {
+  if (!file.isOpen()) {
+    if (!file.open(filename), FILE_READ) {
+      Serial.println("error opening file");
+      return -1;
+    }
+  }
+
+  return file.read(buf, count);
 }

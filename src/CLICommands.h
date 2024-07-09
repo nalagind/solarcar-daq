@@ -25,14 +25,16 @@
 #define ARG_BUFFEREDPRINT_BUFDIM "sdbp dim,bp"
 #define ARG_BUFFEREDPRINT_SYNCCYCLE "sdbp sync,sync"
 
+#define ARG_READ_FILE "read log,rd"
 #define ARG_RESTART "restart"
 #define ARG_LISTCONFIG "ls,list"
 
 #define NOENTRY "noentry"
 
 enum OperatingMode {
-    SOLAR_CAR_MODE,
-    TRACE_CAR_MODE
+    SOLAR_CAR,
+    TRACE_CAR,
+    READ_LOG
 };
 
 struct Preferences {
@@ -51,7 +53,7 @@ struct Preferences {
   int8_t timezone_offset;
 };
 
-extern OperatingMode currentMode;
+extern OperatingMode op_mode;
 extern Preferences pref;
 
 void errorCallback(cmd_error* e) {
@@ -80,6 +82,11 @@ void configCmdCallback(cmd* c) {
     //NVIC_SystemReset();
     HAL_NVIC_SystemReset();
   }
+
+  if (cmd.getArg(ARG_READ_FILE).isSet()) {
+    op_mode = READ_LOG;
+    return;
+  }
   
   EEPROM.get(0, pref);
 
@@ -102,7 +109,7 @@ void configCmdCallback(cmd* c) {
     Serial.println("\nDAQ CONFIG MENU\nitem   set with   current value");
     Serial.println("-----------------------------------------------------------");
 
-    for (int i = 0; i < cmd.countArgs() - 2; i++) {
+    for (int i = 0; i < cmd.countArgs() - 3; i++) {
       Argument arg = cmd.getArg(i);
       String argName = arg.getName();
       const char* argn = argName.c_str();
@@ -176,13 +183,17 @@ void configCmdCallback(cmd* c) {
       if (strstr(argn, "offst") != NULL) {
         Serial.println(timezone_offset);
       }
+
+      if (strstr(argn, "read log") != NULL) {
+        Serial.println("print log from binary");
+      }
     }
     Serial.print("\n\n");
     
     return;
   }
  
-  for (int i = 0; i < cmd.countArgs() - 2; i++) {
+  for (int i = 0; i < cmd.countArgs() - 3; i++) {
     Argument arg = cmd.getArg(i);
     String value = arg.getValue();
     
@@ -321,6 +332,7 @@ SimpleCLI setupCLI() {
   // config.addArg(ARG_SEC, NOENTRY);
   config.addArg(ARG_TIMEZONE_OFFSET, NOENTRY);
 
+  config.addFlagArg(ARG_READ_FILE);
   config.addFlagArg(ARG_LISTCONFIG);
   config.addFlagArg("restart");
     

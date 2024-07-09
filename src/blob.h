@@ -3,12 +3,13 @@
 #include "csv_logger.h"
 #include "STM32_CAN.h"
 #include <STM32RTC.h>
+#include "sd_helper.h"
 
 extern STM32RTC& rtc;
 uint32_t log_sn = 1;
 
 enum LogType {
-    CAN, GPS, DAQ, Radio, Err
+    CAN, GPS, DAQ, Radio, Init, Err
 };
 
 struct Timestamp {
@@ -72,7 +73,7 @@ struct LogBlob {
         CAN_message_t can_rx_msg;
     };
 
-    LogBlob(LogType t, uint32_t& sn = log_sn): type{t}, sn{sn++} {};
+    LogBlob(LogType t = Init, uint32_t& sn = log_sn): type{t}, sn{sn++} {};
 
     void to_csv_line(CSV_Line& l) {
         l.append(log_type, type);
@@ -93,4 +94,44 @@ struct LogBlob {
             default: ;
         }
     }
+
+    template <typename WriteClass, uint8_t BUF_DIM>
+    size_t write_bin(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
+        return bp.write(reinterpret_cast<const char*>(this), sizeof(LogBlob));
+        // return 0;
+    }
+
+    static LogBlob blob_from_bin(uint32_t& sn, FsFile& file, const char *filename = "daq.bin") {
+        int size = sizeof(LogBlob);
+        char* buf[size] = {0};
+        int n = read_file(file, buf, size, filename);
+        
+        if (n == size) {
+            LogBlob b(Init, sn);
+            memcpy(&b, buf, size);
+            return b;
+        } 
+        else if (n < size && n >= 0) Serial.println("end of file reached");
+        else if (n < 0) Serial.println("file read error");
+        return LogBlob(Err, sn);
+    }
 };
+
+template <typename WriteClass, uint8_t BUF_DIM>
+void blob_read_bin(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, const char *filename = "daq.bin") {
+    uint32_t sn = 0;
+    if (!sd_open(PC4, PA6, PA7, PA5, file_bin, O_RDONLY, filename)) return;
+    bp.println("---------------------------reading from binary file---------------------------");
+
+    Serial.printf("%d", file_bin.available());
+    while (file_bin.available()) {
+        LogBlob b = LogBlob::blob_from_bin(sn, file_bin);
+        CSV_Line l;
+        b.to_csv_line(l);
+        l.write_row(bp, true, false);
+        bp.println();
+    }
+    
+    SD.end();
+    delay(5000);
+}
