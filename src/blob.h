@@ -101,10 +101,10 @@ struct LogBlob {
         // return 0;
     }
 
-    static LogBlob blob_from_bin(uint32_t& sn, FsFile& file, const char *filename = "daq.bin") {
+    static LogBlob blob_from_bin(uint32_t& sn, FsFile& file, const char *bin_name) {
         int size = sizeof(LogBlob);
         char* buf[size] = {0};
-        int n = read_file(file, buf, size, filename);
+        int n = read_file(file, buf, size, bin_name);
         
         if (n == size) {
             LogBlob b(Init, sn);
@@ -117,21 +117,24 @@ struct LogBlob {
     }
 };
 
-template <typename WriteClass, uint8_t BUF_DIM>
-void blob_read_bin(BufferedPrintPlus<WriteClass, BUF_DIM>& bp, const char *filename = "daq.bin") {
+void blob_read_bin(const char *bin_name = "daq.bin", const char *csv_name = "daq_unpacked.csv") {
     uint32_t sn = 0;
-    if (!sd_open(PC4, PA6, PA7, PA5, file_bin, O_RDONLY, filename)) return;
-    bp.println("---------------------------reading from binary file---------------------------");
+    BufferedPrintPlus<FsFile, 255> bp(true, 256);
+    FsFile f_bin, f_csv;
 
-    Serial.printf("%d", file_bin.available());
-    while (file_bin.available()) {
-        LogBlob b = LogBlob::blob_from_bin(sn, file_bin);
+    if (!sd_open(PC4, PA6, PA7, PA5, f_bin, O_RDONLY, bin_name)) { Serial.println("Error opening bin log"); return; }
+    if (!file_open(f_csv, csv_name, FILE_OVERWRITE)) { Serial.println("Error opening target csv"); return; }
+    bp.begin(&f_csv);
+
+    Serial.printf("bin >> csv, estimated output %d kB ...", f_bin.available() * 2 / 1024);
+    while (f_bin.available()) {
+        LogBlob b = LogBlob::blob_from_bin(sn, f_bin, bin_name);
         CSV_Line l;
         b.to_csv_line(l);
-        l.write_row(bp, true, false);
-        bp.println();
+        l.write_row(bp);
     }
     
+    f_bin.sync(); f_bin.close(); f_csv.close();
     SD.end();
-    delay(5000);
+    Serial.println("done");
 }

@@ -237,8 +237,8 @@ bool sd_begin (
 
 bool file_open (
   FsFile& file,
-  oflag_t oflag = O_RDWR,
-  const char *filename = "daq.csv")
+  const char *filename = "daq.csv",
+  oflag_t oflag = O_RDWR)
 {
   if (!file.open(filename, oflag)) {
     Serial.println("failed to open file");
@@ -258,7 +258,7 @@ bool sd_open (
   const char *filename = "daq.csv")
 {
   if (!sd_begin(cs, miso, mosi, sclk)) return false;
-  if (!file_open(file, oflag, filename)) return false;
+  if (!file_open(file, filename, oflag)) return false;
   return true;
 }
 
@@ -275,10 +275,7 @@ void write_header(BufferedPrintPlus<WriteClass, BUF_DIM>& bp) {
 
 int read_file(FsFile& file, void* buf, size_t count, const char* filename = "daq.csv") {
   if (!file.isOpen()) {
-    if (!file.open(filename), FILE_READ) {
-      Serial.println("error opening file");
-      return -1;
-    }
+    if (!file_open(file, filename, O_RDONLY)) return -1;
   }
 
   return file.read(buf, count);

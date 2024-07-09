@@ -152,6 +152,12 @@ public:
         return r;
     }
 
+    bool sync_now() {
+        if (!write_enabled || !writeclass_sync_enabled) return true;
+        syncV<WriteClass>();
+        writeclass_write_count = 0;
+    }
+
     template <typename U>
     void syncV() {
         if constexpr (has_sync<U>::value) {

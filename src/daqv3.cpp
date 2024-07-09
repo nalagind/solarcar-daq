@@ -85,8 +85,9 @@ void setup() {
     }
 
     if (op_mode == READ_LOG) {
-      blob_read_bin(sbp2);
+      blob_read_bin();
       op_mode = SOLAR_CAR;
+      countdown = millis();
     }
   }
 
@@ -94,7 +95,7 @@ void setup() {
   Can.setBaudRate(pref.can_rate * 1000);
 
   sd_init(PC4, PA6, PA7, PA5);
-  if (file_open(file_bin, FILE_OVERWRITE, "daq.bin")) Serial.println("bin file ok");
+  if (file_open(file_bin, "daq.bin", FILE_OVERWRITE)) Serial.println("bin file ok");
   sdbp.begin(&file);
   binbp.begin(&file_bin);
   file.sync();
