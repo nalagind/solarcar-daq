@@ -2,7 +2,7 @@
 
 extern SX1262 radio;
 
-void lora_init(float freq, uint16_t bw, uint8_t sf, uint8_t cr, uint8_t crc) {
+bool lora_init(float freq, uint16_t bw, uint8_t sf, uint8_t cr, uint8_t crc) {
   Serial.print(F("[SX1262] Initializing ... "));
   int state = radio.begin();
   radio.setRfSwitchPins(PA1, PA0);
@@ -14,10 +14,11 @@ void lora_init(float freq, uint16_t bw, uint8_t sf, uint8_t cr, uint8_t crc) {
   state = radio.setOutputPower(22);
   if (state == RADIOLIB_ERR_NONE) {
     Serial.println("success!");
+    return true;
   } else {
     Serial.print("failed, code ");
     Serial.println(state);
-    while (true);
+    return false;
   }
 }
 

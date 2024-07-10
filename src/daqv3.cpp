@@ -37,6 +37,14 @@ bool real_time = false;
 volatile bool set_time = false;
 uint8_t second;
 OperatingMode op_mode = SOLAR_CAR;
+uint32_t countdown;
+String input;
+bool sbp_e;
+bool sbp2_e;
+
+uint32_t gps_last;
+
+Sys_Stat sys;
 
 CSV_Header filter[] = {gps_spd_kmph, can_ID, sn, timestamp};
 
@@ -55,47 +63,21 @@ void setup() {
   Serial.setTx(PB10);
   Serial.begin(115200);
 
-  pinMode(PB6, OUTPUT);
-  digitalWrite(PB6, HIGH);
-
   pinMode(PA4, INPUT);
   attachInterrupt(PA4, pps_callback, RISING);
 
   rtc.setClockSource(STM32RTC::HSE_CLOCK);
   rtc.begin(STM32RTC::HOUR_24);
 
-  cli.parse("config -ls");
-
-  uint16_t countdown = millis();
-  Serial.println("starting in");
-  while (millis() - countdown < pref.startup_delay * 1000) {
-    if (Serial.available()) {
-      String input = Serial.readStringUntil('\n');
-      Serial.print("% ");
-      input.trim();
-      Serial.println(input);
-      cli.parse(input);
-      countdown = millis();
-    }
-
-    if ((millis() - countdown) % 1000 <= 3) {
-      Serial.print(pref.startup_delay - (millis() - countdown) / 1000);
-      Serial.print(" ");
-      delay(5);
-    }
-
-    if (op_mode == READ_LOG) {
-      blob_read_bin();
-      op_mode = SOLAR_CAR;
-      countdown = millis();
-    }
-  }
-
+  EEPROM.get(0, pref);
+  
   Can.begin();
   Can.setBaudRate(pref.can_rate * 1000);
 
-  sd_init(PC4, PA6, PA7, PA5);
-  if (file_open(file_bin, "daq.bin", FILE_OVERWRITE)) Serial.println("bin file ok");
+  sys.update(SD_Init, sd_begin(PC4, PA6, PA7, PA5));
+  sys.update(SD_CSV, file_open(file, "daq.csv", FILE_OVERWRITE));
+  sys.update(SD_BIN, file_open(file_bin, "daq.bin", FILE_OVERWRITE));
+
   sdbp.begin(&file);
   binbp.begin(&file_bin);
   file.sync();
@@ -105,7 +87,7 @@ void setup() {
 
   SerialGPS.begin(9600);
 
-  lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC);
+  sys.update(SC_Radio, lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC));
   
   Serial.println("started");
 
@@ -118,6 +100,25 @@ void setup() {
 }
 
 void loop() {
+  if (Serial.available() && op_mode == SOLAR_CAR) {
+    sbp_e = sbp.enable_write(false); sbp2_e = sbp2.enable_write(false);
+    input = "";
+    countdown = millis();
+    sys.to_cli();
+    Serial.printf("DAQ is continuing in the background\n"
+                  "use \"config -ls\" to see all options\n"
+                  "Returning in %d seconds\n", pref.startup_delay); 
+    Serial.print("% ");
+    op_mode = CLI_NO_BLOCK;
+  }
+    
+  if (op_mode == CLI_NO_BLOCK && (millis() - countdown) < (pref.startup_delay * 1000)) {
+    feed_cli(input);  
+  } else if (op_mode == CLI_NO_BLOCK) {
+    sbp.enable_write(sbp_e); sbp2.enable_write(sbp2_e);
+    op_mode = SOLAR_CAR;
+  }
+
   if (Can.read(CAN_RX_msg)) {
     CSV_Line logger;
     LogBlob log(CAN);
@@ -150,21 +151,20 @@ void loop() {
   }
   if (millis() - t > 1000) {
     if (gps.satellites.value() > 1 && gps.location.isValid()) {
-      if (gps.time.isValid()) {
-        if (!real_time) {
-          rtc.setYear(gps.date.year() - 2000);
-          rtc.setMonth(gps.date.month());
-          rtc.setDay(gps.date.day());
-          rtc.setHours((gps.time.hour() + pref.timezone_offset) % 24);
-          rtc.setMinutes(gps.time.minute());
-          second = gps.time.second();
-          rtc.setSeconds(second);
-          set_time = true;
-          real_time = true;
-        }
+      if (gps.time.isValid() && !real_time) {
+        rtc.setYear(gps.date.year() - 2000);
+        rtc.setMonth(gps.date.month());
+        rtc.setDay(gps.date.day());
+        rtc.setHours((gps.time.hour() + pref.timezone_offset) % 24);
+        rtc.setMinutes(gps.time.minute());
+        second = gps.time.second();
+        rtc.setSeconds(second);
+        set_time = true;
+        real_time = true;
+        sys.update(WorldTime, true);
       }
 
-      LogBlob gps_blob(GPS);
+      LogBlob gps_blob(LogType::GPS);
       gps_blob.gps_log = {
         static_cast<int>(gps.satellites.isValid() ? gps.satellites.value() : -1),
         static_cast<float>(gps.hdop.isValid() ? gps.hdop.hdop() : -1),
@@ -180,12 +180,14 @@ void loop() {
       l.write_row(sdbp);
       gps_blob.write_bin(binbp);
       sbp.println();
+      sys.update(SC_GPS, true);
     }
     
     t = millis();
   }
 
-  // if (count % 1000 == 0) sbp.println(count);
-  // sdbp.printField(count++, '\n');
-  // delay(5);
+  if (millis() - gps_last > 5000 && gps.charsProcessed() < 10) {
+    sys.update(SC_GPS, false);
+    gps_last = millis();
+  }
 }

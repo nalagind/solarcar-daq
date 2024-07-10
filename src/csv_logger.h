@@ -197,7 +197,11 @@ public:
         BufferedPrint<WriteClass, BUF_DIM>::begin(wr);
     }
 
-    void enable_write(bool e = true) { write_enabled = e; }
+    bool enable_write(bool e = true) {
+        bool e_o = write_enabled;
+        write_enabled = e;
+        return e_o;
+    }
 
     void config_sync(bool sync_e, uint16_t sync_c) {
         writeclass_sync_enabled = sync_e;

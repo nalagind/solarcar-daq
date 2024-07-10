@@ -3,6 +3,8 @@
 #include <SimpleCLI.h>
 #include "RTC_helper.h"
 #include <EEPROM.h>
+#include "led.h"
+#include "blob.h"
 
 #define ARG_DATETIME "date time"
 #define ARG_CAN_RATE "can rate(k),cn"
@@ -12,18 +14,17 @@
 #define ARG_LORA_CR "lora CR,cr"
 #define ARG_LORA_CRC "lora CRC,crc"
 #define ARG_FILE_OVERWRITE "overwrite,ow"
-#define ARG_STARTUP_DELAY "startup,delay"
+#define ARG_STARTUP_DELAY "cli delay,dl"
 // #define ARG_FILENAME "filename,fn"
-// #define ARG_YEAR "year,yr"
-// #define ARG_MONTH "month,mo"
-// #define ARG_DAY "day,day"
-// #define ARG_HOUR "hour,hr"
-// #define ARG_MIN "minute,min"
-// #define ARG_SEC "second,sec"
 #define ARG_TIMEZONE_OFFSET "timezone,offst"
 #define ARG_SERIAL_PRINT "serial,srl"
 #define ARG_BUFFEREDPRINT_BUFDIM "sdbp dim,bp"
 #define ARG_BUFFEREDPRINT_SYNCCYCLE "sdbp sync,sync"
+#define ARG_LEDR_TOGL "led red,red"
+#define ARG_LEDG_TOGL "led green,grn"
+#define ARG_LEDB_TOGL "led blue,blue"
+#define ARG_LEDY_TOGL "led yellow,ylw"
+#define ARG_LEDW_TOGL "led white,wyte"
 
 #define ARG_READ_FILE "read log,rd"
 #define ARG_RESTART "restart"
@@ -34,7 +35,8 @@
 enum OperatingMode {
     SOLAR_CAR,
     TRACE_CAR,
-    READ_LOG
+    READ_LOG,
+    CLI_NO_BLOCK
 };
 
 struct Preferences {
@@ -84,10 +86,36 @@ void configCmdCallback(cmd* c) {
   }
 
   if (cmd.getArg(ARG_READ_FILE).isSet()) {
-    op_mode = READ_LOG;
+    if (op_mode == CLI_NO_BLOCK) Serial.println(", restart first!");
+    else op_mode = READ_LOG;
+    return;
+  }
+
+  if (cmd.getArg(ARG_LEDR_TOGL).isSet()) {
+    LED.toggle(R);
     return;
   }
   
+  if (cmd.getArg(ARG_LEDG_TOGL).isSet()) {
+    LED.toggle(G);
+    return;
+  }
+  
+  if (cmd.getArg(ARG_LEDB_TOGL).isSet()) {
+    LED.toggle(B);
+    return;
+  }
+  
+  if (cmd.getArg(ARG_LEDY_TOGL).isSet()) {
+    LED.toggle(Y);
+    return;
+  }
+  
+  if (cmd.getArg(ARG_LEDW_TOGL).isSet()) {
+    LED.toggle(W);
+    return;
+  }
+
   EEPROM.get(0, pref);
 
   uint16_t can_rate = pref.can_rate;
@@ -185,7 +213,17 @@ void configCmdCallback(cmd* c) {
       }
 
       if (strstr(argn, "read log") != NULL) {
-        Serial.println("print log from binary");
+        Serial.println("log bin >> csv");
+      }
+
+      if (strstr(argn, "red") != NULL) Serial.println("toggle red LED");
+      if (strstr(argn, "green") != NULL) Serial.println("toggle green LED");
+      if (strstr(argn, "blue") != NULL) Serial.println("toggle blue LED");
+      if (strstr(argn, "yellow") != NULL) Serial.println("toggle yellow LED");
+      if (strstr(argn, "white") != NULL) Serial.println("toggle white LED");
+
+      if (strstr(argn, "estar") != NULL) {
+        Serial.println("restart now");
       }
     }
     Serial.print("\n\n");
@@ -193,7 +231,7 @@ void configCmdCallback(cmd* c) {
     return;
   }
  
-  for (int i = 0; i < cmd.countArgs() - 3; i++) {
+  for (int i = 0; i < cmd.countArgs() - 8; i++) {
     Argument arg = cmd.getArg(i);
     String value = arg.getValue();
     
@@ -250,30 +288,6 @@ void configCmdCallback(cmd* c) {
         pref.sdbp_sync = value.toInt();
       }
 
-      // if (strstr(argn, "year") != NULL) {
-      //   rtc.setYear(value.toInt() - 2000);
-      // }
-
-      // if (strstr(argn, "month") != NULL) {
-      //   rtc.setMonth(value.toInt());
-      // }
-
-      // if (strstr(argn, "day") != NULL) {
-      //   rtc.setDay(value.toInt());
-      // }
-
-      // if (strstr(argn, "hour") != NULL) {
-      //   rtc.setHours(value.toInt());
-      // }
-
-      // if (strstr(argn, "minute") != NULL) {
-      //   rtc.setMinutes(value.toInt());
-      // }
-
-      // if (strstr(argn, "second") != NULL) {
-      //   rtc.setSeconds(value.toInt());
-      // }
-
       if (strstr(argn, "offst") != NULL) {
         pref.timezone_offset = value.toInt() % 24;
       }
@@ -285,7 +299,7 @@ void configCmdCallback(cmd* c) {
   Serial.println("...done");
 
   if (!nonTrivial) {
-    Serial.println("DAQ CONFIG MENU");
+    Serial.println("\nDAQ CONFIG MENU");
     Serial.println("use \"config -ls\" to view all options\n");
   }
 }
@@ -324,17 +338,38 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_STARTUP_DELAY, NOENTRY);
   config.addArg(ARG_BUFFEREDPRINT_BUFDIM, NOENTRY);
   config.addArg(ARG_BUFFEREDPRINT_SYNCCYCLE, NOENTRY);
-  // config.addArg(ARG_YEAR, NOENTRY);
-  // config.addArg(ARG_MONTH, NOENTRY);
-  // config.addArg(ARG_DAY, NOENTRY);
-  // config.addArg(ARG_HOUR, NOENTRY);
-  // config.addArg(ARG_MIN, NOENTRY);
-  // config.addArg(ARG_SEC, NOENTRY);
   config.addArg(ARG_TIMEZONE_OFFSET, NOENTRY);
+  config.addFlagArg(ARG_LEDR_TOGL);
+  config.addFlagArg(ARG_LEDG_TOGL);
+  config.addFlagArg(ARG_LEDB_TOGL);
+  config.addFlagArg(ARG_LEDY_TOGL);
+  config.addFlagArg(ARG_LEDW_TOGL);
 
   config.addFlagArg(ARG_READ_FILE);
   config.addFlagArg(ARG_LISTCONFIG);
   config.addFlagArg("restart");
     
   return cli;
+}
+
+extern uint32_t countdown;
+extern SimpleCLI cli;
+extern Sys_Stat sys;
+
+void feed_cli(String& s) {
+  if (Serial.available()) {
+    char c = Serial.read();
+    if (c != '\n') {
+      s += c;
+      Serial.print(c);
+      countdown = millis();
+    } else {
+      s.trim();
+      cli.parse(s);
+      // cli.parse("config -ls");
+      Serial.printf("Returning in %d seconds\n", pref.startup_delay);
+      Serial.print("% ");
+      s = "";
+    }
+  }
 }

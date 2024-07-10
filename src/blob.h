@@ -64,6 +64,36 @@ struct GPS_Log {
     }
 };
 
+enum SystemComponents {
+    SD_Init, SD_CSV, SD_BIN,
+    SC_Radio,
+    SC_GPS, WorldTime,
+    Unifier,
+    IMU, RPM, Temp,
+    SC_LAST
+};
+
+struct Sys_Stat {
+    uint16_t status = 0;
+
+    void update(SystemComponents c, bool s) {
+        status = status | (s << c);
+    }
+
+    void to_csv_string(CSV_Line& l) {
+        
+    }
+
+    void to_cli() {
+        Serial.println("\nStatus_____________________________");
+        Serial.println("sd\tcsv\tbin\tlora\tgps\tworld time");
+        for (int i = 0; i < Unifier; i++) {
+            Serial.print(((status >> i) & 1) ? "✔\t" : "✖\t");
+        }
+        Serial.print("\n\n");
+    }
+};
+
 struct LogBlob {
     LogType type;
     Timestamp timestamp;
@@ -71,6 +101,7 @@ struct LogBlob {
     union {
         GPS_Log gps_log;
         CAN_message_t can_rx_msg;
+        Sys_Stat sys;
     };
 
     LogBlob(LogType t = Init, uint32_t& sn = log_sn): type{t}, sn{sn++} {};

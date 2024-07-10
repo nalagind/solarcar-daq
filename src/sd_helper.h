@@ -6,9 +6,6 @@
 #include "csv_logger.h"
 
 #define SD_CS PC4
-#define LED_G PB5
-#define LED_B PB6
-#define LED_R PB7
 
 #define SPI_CLOCK SD_SCK_MHZ(50)
 
@@ -57,8 +54,6 @@ void DMA_Init(void) {
   HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-  
-  digitalWrite(LED_G, LOW);
 }
 
 extern "C" void DMA2_Stream3_IRQHandler(void) {
