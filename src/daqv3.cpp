@@ -18,6 +18,7 @@ static CAN_message_t CAN_RX_msg;
 
 SPIClass SPI_3(PC12, PC11, PC10);
 SX1262 radio = new Module(PB3, PA15, PB4, PD2, SPI_3);
+int tx_state = RADIOLIB_ERR_NONE;
 
 SdFs SD;
 
@@ -88,12 +89,13 @@ void setup() {
   SerialGPS.begin(9600);
 
   sys.update(SC_Radio, lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC));
+  radio.setPacketSentAction(radio_txCpltCallback);
   
   Serial.println("started");
 
   sbp.enable_write(pref.sbp_enable == 1);
   sbp.println("ok");
-  sbp2.enable_write(false);
+  sbp2.enable_write(true);
   sdbp.config_sync(true, pref.sdbp_sync);
   binbp.config_sync(true, pref.sdbp_sync);
   CSV_Line::make_filter(filter);
@@ -125,10 +127,19 @@ void loop() {
     log.can_rx_msg = CAN_RX_msg;
     log.to_csv_line(logger);
     logger.write_row(sbp, filter, true, false);
-    logger.write_row(sbp2, true, false);
     logger.write_row(sdbp);
     log.write_bin(binbp);
     sbp.println();
+
+    if (transmit_done) {
+      radio.finishTransmit();
+      if (tx_state != RADIOLIB_ERR_NONE) LogBlob err_txend(Err);
+
+      if (radio.startTransmit(reinterpret_cast<uint8_t*>(&log), sizeof(LogBlob)) != RADIOLIB_ERR_NONE) {
+        LogBlob err_txstart(Err);
+      }
+      transmit_done = false;
+    }
     
     // if (pref.file_overwrite) {
     //   if (!writeFile(pref.filename, can_record.c_str())) {

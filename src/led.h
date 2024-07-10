@@ -2,11 +2,25 @@
 #include <Arduino.h>
 
 #if defined(TIMECONSUMER)
-#define LED_B PB5
-#define LED_G PB6
 #define LED_R PB7
+#define LED_G PB6
+#define LED_B PB5
 #elif defined(UNIFIER)
-#define LED_G
+#define LED1_R PC3
+#define LED1_G PB2
+#define LED1_B PB1
+
+#define LED2_R PA15
+#define LED2_G PC8
+#define LED2_B PC7
+
+#define LED3_R PC15
+#define LED3_G PC14
+#define LED3_B PC13
+
+#define LED_R LED1_R
+#define LED_G LED1_G
+#define LED_B LED1_B
 #endif
 
 enum led {
@@ -116,6 +130,8 @@ public:
     bool get_state(led l) { return states[l]; }
 };
 
-#if defined(TIMECONSUMER)
 LEDColors LED(LED_R, LED_B, LED_G);
+#if defined(UNIFIER)
+LEDColors LED2(LED2_R, LED2_B, LED2_G);
+LEDColors LED3(LED3_R, LED3_B, LED3_G);
 #endif

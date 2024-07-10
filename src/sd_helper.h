@@ -129,9 +129,7 @@ public:
     uint8_t rxbuf[512];
 
     if (HAL_SPI_TransmitReceive_DMA(hspi1_ptr, buf_cpy, rxbuf, count) == HAL_OK) {
-      digitalWrite(LED_R, LOW);
       while (HAL_DMA_GetState(&hdma_spi_tx) != HAL_DMA_STATE_READY) {}
-      digitalWrite(LED_R, HIGH);
     }
   }
 

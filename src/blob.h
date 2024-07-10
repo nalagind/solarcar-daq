@@ -4,6 +4,7 @@
 #include "STM32_CAN.h"
 #include <STM32RTC.h>
 #include "sd_helper.h"
+#include <RadioLib.h>
 
 extern STM32RTC& rtc;
 uint32_t log_sn = 1;
@@ -134,7 +135,7 @@ struct LogBlob {
 
     static LogBlob blob_from_bin(uint32_t& sn, FsFile& file, const char *bin_name) {
         int size = sizeof(LogBlob);
-        char* buf[size] = {0};
+        char* buf[size] = {0}; // BUG: should be char buf
         int n = read_file(file, buf, size, bin_name);
         
         if (n == size) {
@@ -168,4 +169,22 @@ void blob_read_bin(const char *bin_name = "daq.bin", const char *csv_name = "daq
     f_bin.sync(); f_bin.close(); f_csv.close();
     SD.end();
     Serial.println("done");
+}
+
+void blob_ota() {
+    BufferedPrintPlus<Print, 1> bp(&Serial);
+    LogBlob b;
+
+    int size = sizeof(LogBlob);
+    uint8_t buf[size] = {0};
+    int state = radio.readData(buf, size);
+    if (state == RADIOLIB_ERR_NONE) {
+        memcpy(&b, buf, size);
+        CSV_Line l;
+        b.to_csv_line(l);
+        l.write_row(bp, true, false);
+    } else {
+        bp.print("radio data error, code ");
+        bp.println(state);
+    }
 }

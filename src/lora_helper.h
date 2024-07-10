@@ -60,3 +60,9 @@ void LoRaTransmit(String str) {
 
   }
 }
+
+volatile bool transmit_done = true;
+
+void radio_txCpltCallback() {
+  transmit_done = true;
+}
