@@ -6,21 +6,21 @@
 #define LED_G PB6
 #define LED_B PB5
 #elif defined(UNIFIER)
-#define LED1_R PC3
-#define LED1_G PB2
-#define LED1_B PB1
+#define LEDL_R PC3
+#define LEDL_G PB1
+#define LEDL_B PB2
 
-#define LED2_R PA15
-#define LED2_G PC8
-#define LED2_B PC7
+#define LEDC_R PA15
+#define LEDC_G PC8
+#define LEDC_B PC7
 
-#define LED3_R PC15
-#define LED3_G PC14
-#define LED3_B PC13
+#define LEDR_R PC15
+#define LEDR_G PC14
+#define LEDR_B PC13
 
-#define LED_R LED1_R
-#define LED_G LED1_G
-#define LED_B LED1_B
+#define LED_R LEDL_R
+#define LED_G LEDL_G
+#define LED_B LEDL_B
 #endif
 
 enum led {
@@ -29,13 +29,14 @@ enum led {
 
 struct LEDColors {
 private:
-    // std::vector<bool> states;
-    // std::vector<uint32_t> leds;
-    bool states[LED_LAST] = {false};
-    uint32_t leds[3];
+    std::vector<char> states; // auto& doesn't work with vector<bool>
+    std::vector<uint32_t> leds;
+    // bool states[LED_LAST] = {false};
+    // uint32_t leds[3];
 
 public:
-    LEDColors(uint32_t r, uint32_t g, uint32_t b) {
+    // LEDColors(uint32_t r, uint32_t g, uint32_t b) {
+    LEDColors(uint32_t r, uint32_t g, uint32_t b): states(6), leds(3) {
         leds[0] = r; leds[1] = g; leds[2] = b;
         for (auto l: leds) {
             pinMode(l, OUTPUT);
@@ -90,7 +91,7 @@ public:
             pinMode(i, OUTPUT);
             digitalWrite(i, HIGH);
         }
-        for (auto s: states) s = false;
+        for (auto& s: states) s = false;
         states[l] = true;
         switch (l) {
             case R:
@@ -124,7 +125,7 @@ public:
             pinMode(i, OUTPUT);
             digitalWrite(i, HIGH);
         }
-        for (auto s: states) s = false;
+        for (auto& s: states) s = false;
     }
 
     bool get_state(led l) { return states[l]; }
@@ -132,6 +133,7 @@ public:
 
 LEDColors LED(LED_R, LED_B, LED_G);
 #if defined(UNIFIER)
-LEDColors LED2(LED2_R, LED2_B, LED2_G);
-LEDColors LED3(LED3_R, LED3_B, LED3_G);
+#define LEDL LED
+LEDColors LEDC(LEDC_R, LEDC_B, LEDC_G);
+LEDColors LEDR(LEDR_R, LEDR_B, LEDR_G);
 #endif
