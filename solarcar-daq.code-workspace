@@ -1,0 +1,50 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"bit": "cpp",
+			"compare": "cpp",
+			"concepts": "cpp",
+			"cstddef": "cpp",
+			"cstdint": "cpp",
+			"cstdio": "cpp",
+			"cstdlib": "cpp",
+			"cstring": "cpp",
+			"cwchar": "cpp",
+			"exception": "cpp",
+			"initializer_list": "cpp",
+			"limits": "cpp",
+			"map": "cpp",
+			"new": "cpp",
+			"tuple": "cpp",
+			"type_traits": "cpp",
+			"utility": "cpp",
+			"xmemory": "cpp",
+			"xstddef": "cpp",
+			"xtr1common": "cpp",
+			"xtree": "cpp",
+			"xutility": "cpp",
+			"fstream": "cpp",
+			"xlocmes": "cpp",
+			"*.rh": "cpp",
+			"ranges": "cpp",
+			"chrono": "cpp",
+			"deque": "cpp",
+			"forward_list": "cpp",
+			"list": "cpp",
+			"queue": "cpp",
+			"span": "cpp",
+			"vector": "cpp",
+			"xstring": "cpp",
+			"format": "cpp",
+			"valarray": "cpp",
+			"xhash": "cpp",
+			"associative_base": "cpp",
+			"serstream": "cpp"
+		}
+	}
+}
