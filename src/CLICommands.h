@@ -13,12 +13,12 @@
 #define ARG_LORA_SF "lora SF,sf"
 #define ARG_LORA_CR "lora CR,cr"
 #define ARG_LORA_CRC "lora CRC,crc"
-#define ARG_FILE_OVERWRITE "overwrite,ow"
+#define ARG_FILE_TYPE "togl csv/bin,t"
 #define ARG_STARTUP_DELAY "cli delay,dl"
 // #define ARG_FILENAME "filename,fn"
 #define ARG_TIMEZONE_OFFSET "timezone,offst"
 #define ARG_SERIAL_PRINT "serial,srl"
-#define ARG_BUFFEREDPRINT_BUFDIM "sdbp dim,bp"
+// #define ARG_BUFFEREDPRINT_BUFDIM "sdbp dim,bp"
 #define ARG_BUFFEREDPRINT_SYNCCYCLE "sdbp sync,sync"
 #define ARG_LEDR_TOGL "led red,red"
 #define ARG_LEDG_TOGL "led green,grn"
@@ -46,10 +46,10 @@ struct Preferences {
   uint8_t lora_spreading_factor;
   uint8_t lora_coding_rate;
   uint8_t lora_CRC;
-  uint8_t file_overwrite;
+  uint8_t file_type;
   uint8_t startup_delay;
   uint8_t sbp_enable;
-  uint16_t sdbp_dim;
+  // uint16_t sdbp_dim;
   uint16_t sdbp_sync;
   // char filename[32];
   int8_t timezone_offset;
@@ -124,10 +124,10 @@ void configCmdCallback(cmd* c) {
   uint8_t lora_spreading_factor = pref.lora_spreading_factor;
   uint8_t lora_coding_rate = pref.lora_coding_rate;
   uint8_t lora_CRC = pref.lora_CRC;
-  uint8_t file_overwrite = pref.file_overwrite;
+  uint8_t file_type = pref.file_type;
   uint8_t startup_delay = pref.startup_delay;
   uint8_t sbp_enable = pref.sbp_enable;
-  uint16_t sdbp_dim = pref.sdbp_dim;
+  // uint16_t sdbp_dim = pref.sdbp_dim;
   uint16_t sdbp_sync = pref.sdbp_sync;
   int8_t timezone_offset = pref.timezone_offset;
   // char filename[32];
@@ -180,8 +180,9 @@ void configCmdCallback(cmd* c) {
         Serial.println(lora_CRC);
       }
 
-      if (strstr(argn, "overwrite") != NULL) {
-        Serial.println(file_overwrite);
+      if (strstr(argn, "csv") != NULL) {
+        if (file_type) Serial.println("csv");
+        else Serial.println("bin");
       }
       
       // if (strstr(argn, "filename") != NULL) {
@@ -196,9 +197,9 @@ void configCmdCallback(cmd* c) {
         Serial.println(startup_delay);
       }
 
-      if (strstr(argn, "sdbp dim") != NULL) {
-        Serial.println(sdbp_dim);
-      }
+      // if (strstr(argn, "sdbp dim") != NULL) {
+      //   Serial.println(sdbp_dim);
+      // }
 
       if (strstr(argn, "sdbp sync") != NULL) {
         Serial.println(sdbp_sync);
@@ -216,11 +217,11 @@ void configCmdCallback(cmd* c) {
         Serial.println("log bin >> csv");
       }
 
-      if (strstr(argn, "red") != NULL) Serial.println("toggle red LED");
-      if (strstr(argn, "green") != NULL) Serial.println("toggle green LED");
-      if (strstr(argn, "blue") != NULL) Serial.println("toggle blue LED");
-      if (strstr(argn, "yellow") != NULL) Serial.println("toggle yellow LED");
-      if (strstr(argn, "white") != NULL) Serial.println("toggle white LED");
+      if (strstr(argn, "red") != NULL) Serial.println();
+      if (strstr(argn, "green") != NULL) Serial.println();
+      if (strstr(argn, "blue") != NULL) Serial.println();
+      if (strstr(argn, "yellow") != NULL) Serial.println();
+      if (strstr(argn, "white") != NULL) Serial.println();
 
       if (strstr(argn, "estar") != NULL) {
         Serial.println("restart now");
@@ -264,8 +265,8 @@ void configCmdCallback(cmd* c) {
         pref.lora_CRC = value.toInt();
       }
 
-      if (strstr(argn, "overwrite") != NULL) {
-        if (arg.isSet()) pref.file_overwrite = pref.file_overwrite > 0 ? 0 : 1;
+      if (strstr(argn, "csv") != NULL) {
+        if (arg.isSet()) pref.file_type = pref.file_type > 0 ? 0 : 1;
       }
       
       // if (strstr(argn, "filename") != NULL) {
@@ -280,9 +281,9 @@ void configCmdCallback(cmd* c) {
         pref.startup_delay = value.toInt();
       }
 
-      if (strstr(argn, "sdbp dim") != NULL) {
-        pref.sdbp_dim = value.toInt();
-      }
+      // if (strstr(argn, "sdbp dim") != NULL) {
+      //   pref.sdbp_dim = value.toInt();
+      // }
 
       if (strstr(argn, "sdbp sync") != NULL) {
         pref.sdbp_sync = value.toInt();
@@ -332,11 +333,11 @@ SimpleCLI setupCLI() {
   config.addArg(ARG_LORA_SF, NOENTRY);
   config.addArg(ARG_LORA_CR, NOENTRY);
   config.addArg(ARG_LORA_CRC, NOENTRY);
-  config.addFlagArg(ARG_FILE_OVERWRITE);
+  config.addFlagArg(ARG_FILE_TYPE);
   // config.addArg(ARG_FILENAME, NOENTRY);
   config.addFlagArg(ARG_SERIAL_PRINT);
   config.addArg(ARG_STARTUP_DELAY, NOENTRY);
-  config.addArg(ARG_BUFFEREDPRINT_BUFDIM, NOENTRY);
+  // config.addArg(ARG_BUFFEREDPRINT_BUFDIM, NOENTRY);
   config.addArg(ARG_BUFFEREDPRINT_SYNCCYCLE, NOENTRY);
   config.addArg(ARG_TIMEZONE_OFFSET, NOENTRY);
   config.addFlagArg(ARG_LEDR_TOGL);

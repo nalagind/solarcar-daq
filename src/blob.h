@@ -5,6 +5,7 @@
 #include <STM32RTC.h>
 #include "sd_helper.h"
 #include <RadioLib.h>
+#include "led.h"
 
 extern STM32RTC& rtc;
 uint32_t log_sn = 1;
@@ -92,6 +93,14 @@ struct Sys_Stat {
             Serial.print(((status >> i) & 1) ? "✔\t" : "✖\t");
         }
         Serial.print("\n\n");
+    }
+
+    led indicator() {
+        int s = 0;
+        for (int i = 0; i < Unifier; i++) s += ((status >> i) & 1) ? 1 : 0;
+        if (s < 2) return led::R;
+        else if (s >= 2 && s <= 4) return led::Y;
+        else return led::C;
     }
 };
 

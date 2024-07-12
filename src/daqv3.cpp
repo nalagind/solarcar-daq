@@ -43,14 +43,17 @@ String input;
 bool sbp_e;
 bool sbp2_e;
 
-uint32_t gps_last;
+volatile uint32_t pps_last;
 
 Sys_Stat sys;
 
-CSV_Header filter[] = {gps_spd_kmph, can_ID, sn, timestamp};
+CSV_Header filter[] = {gps_lat, gps_lng, can_ID, sn, timestamp};
 
 void pps_callback() {
-  digitalToggle(PB6);
+  if (millis() - pps_last < 950) return;
+  pps_last = millis();
+
+  // LED.toggle(sys.indicator());
   if (set_time) {
     uint8_t s = (second + 1) % 60;
     if (s == 0) real_time = false;
@@ -90,14 +93,11 @@ void setup() {
 
   sys.update(SC_Radio, lora_init(pref.lora_frequency, pref.lora_bandwidth, pref.lora_spreading_factor, pref.lora_coding_rate, pref.lora_CRC));
   radio.setPacketSentAction(radio_txCpltCallback);
-  
-  Serial.println("started");
 
-  sbp.enable_write(pref.sbp_enable == 1);
-  sbp.println("ok");
+  sbp.enable_write(pref.sbp_enable);
   sbp2.enable_write(true);
-  sdbp.config_sync(true, pref.sdbp_sync);
-  binbp.config_sync(true, pref.sdbp_sync);
+  sdbp.config_sync(true, pref.sdbp_sync); sdbp.enable_write(pref.file_type);
+  binbp.config_sync(true, pref.sdbp_sync); binbp.enable_write(!pref.file_type);
   CSV_Line::make_filter(filter);
 }
 
@@ -117,7 +117,8 @@ void loop() {
   if (op_mode == CLI_NO_BLOCK && (millis() - countdown) < (pref.startup_delay * 1000)) {
     feed_cli(input);  
   } else if (op_mode == CLI_NO_BLOCK) {
-    sbp.enable_write(sbp_e); sbp2.enable_write(sbp2_e);
+    sbp.enable_write(pref.sbp_enable); sbp2.enable_write(sbp2_e);
+    sdbp.enable_write(pref.file_type); binbp.enable_write(!pref.file_type);
     op_mode = SOLAR_CAR;
   }
 
@@ -161,6 +162,7 @@ void loop() {
     gps.encode(SerialGPS.read());
   }
   if (millis() - t > 1000) {
+    LED.toggle(sys.indicator());
     if (gps.satellites.value() > 1 && gps.location.isValid()) {
       if (gps.time.isValid() && !real_time) {
         rtc.setYear(gps.date.year() - 2000);
@@ -187,7 +189,7 @@ void loop() {
       };
       CSV_Line l;
       gps_blob.to_csv_line(l);
-      l.write_row(sbp, true, false);
+      l.write_row(sbp, filter, true, false);
       l.write_row(sdbp);
       gps_blob.write_bin(binbp);
       sbp.println();
@@ -197,8 +199,5 @@ void loop() {
     t = millis();
   }
 
-  if (millis() - gps_last > 5000 && gps.charsProcessed() < 10) {
-    sys.update(SC_GPS, false);
-    gps_last = millis();
-  }
+  if (millis() > 5000 && gps.charsProcessed() < 10) sys.update(SC_GPS, false);
 }
