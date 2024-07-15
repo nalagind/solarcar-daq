@@ -2,7 +2,8 @@
 
 #include <SdFat.h>
 #include <type_traits>
-#include "..\lib\SdFat\src\BufferedPrint.h"
+// #include "..\lib\SdFat\src\BufferedPrint.h"
+#include "../lib/SdFat/src/BufferedPrint.h"
 
 enum CSV_Header {
     datestamp,

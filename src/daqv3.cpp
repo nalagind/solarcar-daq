@@ -44,6 +44,8 @@ bool sbp_e;
 bool sbp2_e;
 
 volatile uint32_t pps_last;
+volatile bool sd_reload = false;
+volatile uint32_t sd_det;
 
 Sys_Stat sys;
 
@@ -53,13 +55,17 @@ void pps_callback() {
   if (millis() - pps_last < 950) return;
   pps_last = millis();
 
-  // LED.toggle(sys.indicator());
   if (set_time) {
     uint8_t s = (second + 1) % 60;
     if (s == 0) real_time = false;
     else rtc.setSeconds(s);
     set_time = false;
   }
+}
+
+void sd_det_callback() {
+  sd_reload = true;
+  sd_det = millis();
 }
 
 void setup() {
@@ -69,6 +75,9 @@ void setup() {
 
   pinMode(PA4, INPUT);
   attachInterrupt(PA4, pps_callback, RISING);
+
+  pinMode(PB0, INPUT);
+  attachInterrupt(PB0, sd_det_callback, CHANGE);
 
   rtc.setClockSource(STM32RTC::HSE_CLOCK);
   rtc.begin(STM32RTC::HOUR_24);
@@ -141,21 +150,6 @@ void loop() {
       }
       transmit_done = false;
     }
-    
-    // if (pref.file_overwrite) {
-    //   if (!writeFile(pref.filename, can_record.c_str())) {
-    //     Serial.println("Writing to file failed");
-    //   }
-    //   Serial.println("record line written");
-    // } else {
-    //   if (!appendFile(pref.filename, can_record.c_str())) {
-    //     Serial.println("Writing to file failed");
-    //   }
-    //   Serial.println("record line written");
-    // }
-
-    // LoRaTransmit(can_record);
-    // FSK_Transmit(can_record);
   }
 
   while (SerialGPS.available()) {
@@ -197,6 +191,30 @@ void loop() {
     }
     
     t = millis();
+  }
+
+  if (sd_reload && (millis() - sd_det > 200)) {
+    sd_det = millis();
+
+    if (sys.is_ok(SD_Init)) {
+      if (file.isOpen()) {
+        file.close(); sys.update(SD_CSV, false);
+      }
+      if (file_bin.isOpen()) {
+        file_bin.close(); sys.update(SD_BIN, false);
+      }
+      SD.end(); sys.update(SD_Init, false);
+    }
+
+    if (digitalRead(PB0) == LOW) {
+      sys.update(SD_Init, sd_begin(PC4, PA6, PA7, PA5));
+      sys.update(SD_CSV, file_open(file, "daq.csv", FILE_OVERWRITE));
+      sys.update(SD_BIN, file_open(file_bin, "daq.bin", FILE_OVERWRITE));
+      sdbp.begin(&file); binbp.begin(&file_bin);
+      file.sync(); file_bin.sync();
+    }
+
+    sd_reload = false;
   }
 
   if (millis() > 5000 && gps.charsProcessed() < 10) sys.update(SC_GPS, false);

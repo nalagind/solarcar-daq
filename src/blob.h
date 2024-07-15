@@ -76,15 +76,18 @@ enum SystemComponents {
 };
 
 struct Sys_Stat {
-    uint16_t status = 0;
+    volatile uint16_t status = 0;
 
-    void update(SystemComponents c, bool s) {
-        status = status | (s << c);
+    void update(SystemComponents c, bool s) volatile {
+        if (s) status |= s << c;
+        else status &= ~(1 << c);
     }
 
     void to_csv_string(CSV_Line& l) {
         
     }
+
+    bool is_ok(SystemComponents c) const volatile { return status >> c; }
 
     void to_cli() {
         Serial.println("\nStatus_____________________________");

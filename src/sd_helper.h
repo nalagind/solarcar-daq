@@ -1,8 +1,10 @@
 #pragma once
 #include <SPI.h>
 #include <SdFat.h>
-#include "..\lib\SdFat\src\SpiDriver\SdSpiBaseClass.h"
-#include "..\lib\SdFat\src\BufferedPrint.h"
+// #include "..\lib\SdFat\src\SpiDriver\SdSpiBaseClass.h"
+// #include "..\lib\SdFat\src\BufferedPrint.h"
+#include "../lib/SdFat/src/SpiDriver/SdSpiBaseClass.h"
+#include "../lib/SdFat/src/BufferedPrint.h"
 #include "csv_logger.h"
 
 #define SD_CS PC4
@@ -101,6 +103,11 @@ public:
 
   void end() override {
     SPI.end();
+
+    HAL_DMA_Abort(&hdma_spi_rx);
+    HAL_DMA_Abort(&hdma_spi_tx);
+    HAL_DMA_DeInit(&hdma_spi_rx);
+    HAL_DMA_DeInit(&hdma_spi_tx);
   }
 
   uint8_t receive() override {
