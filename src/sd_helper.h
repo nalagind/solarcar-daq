@@ -248,6 +248,27 @@ bool file_open (
   return true;
 }
 
+bool file_open_safe (
+  FsFile& file,
+  const char *filename = "daq",
+  const char *type = "csv",
+  oflag_t oflag = O_RDWR)
+{
+  char fnt[20] = {0};
+  snprintf(fnt, sizeof(fnt), "%s.%s", filename, type);
+  
+  int n = 0;
+  file.open("/");
+  while (file.exists(fnt)) { snprintf(fnt, sizeof(fnt), "%s %d.%s", filename, ++n, type); }
+
+  if (!file.open(fnt, oflag)) {
+    Serial.println("failed to open file");
+    return false;
+  }
+  Serial.println("and mounted!");
+  return true;    
+}
+
 bool sd_open (
   uint32_t cs, 
   uint32_t miso, 

@@ -153,8 +153,8 @@ public:
         return r;
     }
 
-    bool sync_now() {
-        if (!write_enabled || !writeclass_sync_enabled) return true;
+    void sync_now() {
+        if (!write_enabled || !writeclass_sync_enabled) return;
         syncV<WriteClass>();
         writeclass_write_count = 0;
     }

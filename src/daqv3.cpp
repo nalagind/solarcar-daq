@@ -88,13 +88,11 @@ void setup() {
   Can.setBaudRate(pref.can_rate * 1000);
 
   sys.update(SD_Init, sd_begin(PC4, PA6, PA7, PA5));
-  sys.update(SD_CSV, file_open(file, "daq.csv", FILE_OVERWRITE));
-  sys.update(SD_BIN, file_open(file_bin, "daq.bin", FILE_OVERWRITE));
+  if (pref.file_type) sys.update(SD_CSV, file_open_safe(file, "daq", "csv", FILE_OVERWRITE));
+  else sys.update(SD_BIN, file_open_safe(file_bin, "daq", "bin", FILE_OVERWRITE));
 
-  sdbp.begin(&file);
-  binbp.begin(&file_bin);
-  file.sync();
-  file_bin.sync();
+  sdbp.begin(&file); binbp.begin(&file_bin);
+  sdbp.sync_now(); binbp.sync_now();
   
   write_header(sdbp);
 
@@ -129,6 +127,9 @@ void loop() {
     sbp.enable_write(pref.sbp_enable); sbp2.enable_write(sbp2_e);
     sdbp.enable_write(pref.file_type); binbp.enable_write(!pref.file_type);
     op_mode = SOLAR_CAR;
+  } else if (op_mode == READ_LOG) {
+    
+    while (true);
   }
 
   if (Can.read(CAN_RX_msg)) {
@@ -162,7 +163,7 @@ void loop() {
         rtc.setYear(gps.date.year() - 2000);
         rtc.setMonth(gps.date.month());
         rtc.setDay(gps.date.day());
-        rtc.setHours((gps.time.hour() + pref.timezone_offset) % 24);
+        rtc.setHours(static_cast<uint8_t>((gps.time.hour() + pref.timezone_offset) % 24));
         rtc.setMinutes(gps.time.minute());
         second = gps.time.second();
         rtc.setSeconds(second);
@@ -208,10 +209,12 @@ void loop() {
 
     if (digitalRead(PB0) == LOW) {
       sys.update(SD_Init, sd_begin(PC4, PA6, PA7, PA5));
-      sys.update(SD_CSV, file_open(file, "daq.csv", FILE_OVERWRITE));
-      sys.update(SD_BIN, file_open(file_bin, "daq.bin", FILE_OVERWRITE));
+      if (pref.file_type) sys.update(SD_CSV, file_open_safe(file, "daq", "csv", FILE_OVERWRITE));
+      else sys.update(SD_BIN, file_open_safe(file_bin, "daq", "bin", FILE_OVERWRITE));
+      
       sdbp.begin(&file); binbp.begin(&file_bin);
-      file.sync(); file_bin.sync();
+      sdbp.enable_write(pref.file_type); binbp.enable_write(!pref.file_type);
+      sdbp.sync_now(); binbp.sync_now();
     }
 
     sd_reload = false;
